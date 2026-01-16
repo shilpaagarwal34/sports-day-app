@@ -297,16 +297,17 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
           {assignedPlayers.length > 0 && (
             <button
               type="button"
-              className="reset-all-btn"
+              className="remove-all-btn"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                e.nativeEvent.stopImmediatePropagation();
                 handleResetAllPlayers(e);
               }}
               disabled={loading}
               title="Remove all players from this game"
             >
-              {loading ? 'Resetting...' : '🔄 Reset All'}
+              {loading ? 'Removing...' : '🗑️ Remove All'}
             </button>
           )}
         </div>

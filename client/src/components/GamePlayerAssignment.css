@@ -58,7 +58,7 @@
 }
 
 .add-all-btn,
-.reset-all-btn {
+.remove-all-btn {
   padding: 8px 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -72,23 +72,24 @@
 }
 
 .add-all-btn:hover:not(:disabled),
-.reset-all-btn:hover:not(:disabled) {
-  transform: scale(1.05);
+.remove-all-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
 }
 
 .add-all-btn:disabled,
-.reset-all-btn:disabled {
+.remove-all-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.reset-all-btn {
-  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+.remove-all-btn {
+  background: linear-gradient(135deg, #ff4d4f 0%, #cf1322 100%);
 }
 
-.reset-all-btn:hover:not(:disabled) {
-  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+.remove-all-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ff7875 0%, #ff4d4f 100%);
+  box-shadow: 0 4px 12px rgba(255, 77, 79, 0.4);
 }
 
 .requirements-hint {
