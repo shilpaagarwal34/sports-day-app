@@ -87,7 +87,10 @@ const Games: React.FC = () => {
           <div 
             key={game.id} 
             className="game-card"
-            onClick={() => handleGameClick(game)}
+            onClick={(e) => {
+              e.preventDefault();
+              handleGameClick(game);
+            }}
           >
             <div className="game-card-header">
               <h3>{game.name}</h3>
@@ -122,7 +125,15 @@ const Games: React.FC = () => {
             )}
 
             <div className="game-card-footer">
-              <button className="game-card-btn">
+              <button 
+                type="button"
+                className="game-card-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleGameClick(game);
+                }}
+              >
                 Manage Players →
               </button>
             </div>

@@ -71,7 +71,10 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     return filtered;
   };
 
-  const handleAddPlayer = async (playerId: number) => {
+  const handleAddPlayer = async (e: React.MouseEvent, playerId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     // Check if player limit is reached
     if (isPlayerLimitReached()) {
       const required = getRequiredPlayers();
@@ -89,7 +92,10 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     }
   };
 
-  const handleRemovePlayer = async (playerId: number) => {
+  const handleRemovePlayer = async (e: React.MouseEvent, playerId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     try {
       await removePlayerFromGame(game.id, playerId);
       onPlayerAdded();
@@ -162,8 +168,9 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                   <span className="player-badge age">{player.age_category}</span>
                 )}
                 <button 
+                  type="button"
                   className="remove-btn"
-                  onClick={() => handleRemovePlayer(player.id)}
+                  onClick={(e) => handleRemovePlayer(e, player.id)}
                   title="Remove from game"
                 >
                   ✕
@@ -214,8 +221,9 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                   <span className="player-badge age">{player.age_category}</span>
                 )}
                 <button 
+                  type="button"
                   className="add-btn"
-                  onClick={() => handleAddPlayer(player.id)}
+                  onClick={(e) => handleAddPlayer(e, player.id)}
                   title={limitReached ? "Player limit reached" : "Add to game"}
                   disabled={limitReached}
                   style={{ 
