@@ -1,12 +1,40 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 
-// For Vercel serverless, use /tmp directory (writable)
-// For local development, use server directory
+// Determine database path based on environment
+// Railway: Use /data volume for persistence (create if doesn't exist)
+// Vercel: Use /tmp directory (ephemeral, but writable)
+// Local: Use server directory
 const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
-const DB_PATH = isVercel 
-  ? path.join('/tmp', 'sports_day.db')
-  : path.join(__dirname, 'sports_day.db');
+const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME;
+
+let DB_PATH;
+if (isVercel) {
+  // Vercel serverless - use /tmp (ephemeral)
+  DB_PATH = path.join('/tmp', 'sports_day.db');
+} else if (isRailway) {
+  // Railway - use /data volume for persistence
+  const dataDir = '/data';
+  // Ensure /data directory exists (Railway volume should be mounted here)
+  if (!fs.existsSync(dataDir)) {
+    // If /data doesn't exist, try /persist or fallback to project directory
+    if (fs.existsSync('/persist')) {
+      DB_PATH = path.join('/persist', 'sports_day.db');
+    } else {
+      // Fallback: use project directory (will be ephemeral but at least works)
+      console.warn('Warning: /data volume not found. Using project directory (data will be lost on restart).');
+      DB_PATH = path.join(__dirname, 'sports_day.db');
+    }
+  } else {
+    DB_PATH = path.join(dataDir, 'sports_day.db');
+  }
+} else {
+  // Local development - use server directory
+  DB_PATH = path.join(__dirname, 'sports_day.db');
+}
+
+console.log('Database path:', DB_PATH);
 
 let db = null;
 
