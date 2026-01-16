@@ -43,10 +43,41 @@
   margin-bottom: 0;
 }
 
+.assignment-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 15px;
+}
+
 .assignment-section h4 {
-  margin: 0 0 15px 0;
+  margin: 0;
   color: #333;
   font-size: 1.1rem;
+}
+
+.add-all-btn {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.add-all-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.add-all-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .requirements-hint {

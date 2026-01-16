@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getGames, Game, getGamePlayers, Player } from '../services/api';
+import { getGames, Game, getGamePlayers, Player, getPlayers, addPlayerToGame } from '../services/api';
 import './Games.css';
 import GamePlayerAssignment from './GamePlayerAssignment';
 import Modal from './Modal';
@@ -12,6 +12,7 @@ const Games: React.FC = () => {
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [gamePlayers, setGamePlayers] = useState<Player[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddingAll, setIsAddingAll] = useState(false);
 
   useEffect(() => {
     loadGames();
@@ -59,6 +60,69 @@ const Games: React.FC = () => {
     }
   };
 
+  const handleAddAllPlayersToAllGames = async () => {
+    if (isAddingAll) return;
+    
+    try {
+      setIsAddingAll(true);
+      const allPlayers = await getPlayers();
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const game of games) {
+        // Get current players for this game
+        const currentPlayers = await getGamePlayers(game.id);
+        const currentPlayerIds = new Set(currentPlayers.map(p => p.id));
+        
+        // Get required players count
+        const composition = game.team_composition || '';
+        let requiredPlayers = null;
+        if (!composition.toLowerCase().includes('all players')) {
+          const match = composition.match(/(\d+)\s+Players?/i);
+          if (match) {
+            requiredPlayers = parseInt(match[1], 10);
+          }
+        }
+
+        // Determine which players to add
+        let playersToAdd = allPlayers.filter(p => !currentPlayerIds.has(p.id));
+        
+        if (requiredPlayers !== null) {
+          const remaining = requiredPlayers - currentPlayers.length;
+          if (remaining > 0) {
+            playersToAdd = playersToAdd.slice(0, remaining);
+          } else {
+            continue; // Game already full
+          }
+        }
+
+        // Add players to this game
+        for (const player of playersToAdd) {
+          try {
+            await addPlayerToGame(game.id, player.id);
+            successCount++;
+          } catch (err: any) {
+            failCount++;
+            console.error(`Failed to add ${player.name} to ${game.name}:`, err);
+          }
+        }
+      }
+
+      // Refresh games list
+      await loadGames();
+      
+      if (selectedGame) {
+        await loadGamePlayers(selectedGame.id);
+      }
+
+      alert(`Successfully added players to games!\n${successCount} players added.${failCount > 0 ? `\n${failCount} failed.` : ''}`);
+    } catch (err: any) {
+      alert(`Error: ${err.message || 'Failed to add players to games'}`);
+    } finally {
+      setIsAddingAll(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="games-page">
@@ -78,7 +142,17 @@ const Games: React.FC = () => {
   return (
     <div className="games-page">
       <div className="games-header">
-        <Link to="/" className="back-button">← Back to Home</Link>
+        <div className="games-header-top">
+          <Link to="/" className="back-button">← Back to Home</Link>
+          <button
+            type="button"
+            className="add-all-games-btn"
+            onClick={handleAddAllPlayersToAllGames}
+            disabled={isAddingAll || games.length === 0}
+          >
+            {isAddingAll ? '⏳ Adding Players...' : '➕ Add All Players to All Games'}
+          </button>
+        </div>
         <h1>🎮 Games ({games.length})</h1>
       </div>
 

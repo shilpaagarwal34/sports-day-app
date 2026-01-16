@@ -10,11 +10,19 @@
   color: white;
 }
 
+.games-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
 .back-button {
   display: inline-block;
   color: white;
   text-decoration: none;
-  margin-bottom: 15px;
   font-weight: 500;
   transition: opacity 0.3s;
   opacity: 0.9;
@@ -22,6 +30,32 @@
 
 .back-button:hover {
   opacity: 1;
+}
+
+.add-all-games-btn {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.add-all-games-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.add-all-games-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .games-header h1 {

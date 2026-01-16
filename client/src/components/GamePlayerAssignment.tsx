@@ -105,6 +105,66 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     }
   };
 
+  const handleAddAllPlayers = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const required = getRequiredPlayers();
+    const available = getAvailablePlayers();
+    
+    if (available.length === 0) {
+      setError('No available players to add');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    // Determine how many players to add
+    let playersToAdd = available;
+    if (required !== null) {
+      // If there's a limit, only add up to the limit
+      const remaining = required - assignedPlayers.length;
+      if (remaining <= 0) {
+        setError(`Game already has ${assignedPlayers.length}/${required} players. Cannot add more.`);
+        setTimeout(() => setError(null), 3000);
+        return;
+      }
+      playersToAdd = available.slice(0, remaining);
+    }
+
+    // Add players one by one
+    try {
+      setLoading(true);
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const player of playersToAdd) {
+        try {
+          await addPlayerToGame(game.id, player.id);
+          successCount++;
+        } catch (err: any) {
+          failCount++;
+          console.error(`Failed to add ${player.name}:`, err);
+        }
+      }
+
+      if (successCount > 0) {
+        onPlayerAdded();
+        if (failCount > 0) {
+          setError(`Added ${successCount} players. ${failCount} failed.`);
+          setTimeout(() => setError(null), 5000);
+        }
+      } else {
+        setError('Failed to add any players');
+        setTimeout(() => setError(null), 3000);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to add players');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const parseCompositionRequirements = () => {
     const composition = game.team_composition || '';
     const requirements: string[] = [];
@@ -182,7 +242,19 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
       </div>
 
       <div className="assignment-section">
-        <h4>Available Players ({availablePlayers.length})</h4>
+        <div className="assignment-section-header">
+          <h4>Available Players ({availablePlayers.length})</h4>
+          {availablePlayers.length > 0 && !limitReached && (
+            <button
+              type="button"
+              className="add-all-btn"
+              onClick={handleAddAllPlayers}
+              disabled={loading}
+            >
+              {loading ? 'Adding...' : '➕ Add All Available'}
+            </button>
+          )}
+        </div>
         
         {requirements.length > 0 && (
           <div className="requirements-hint">
