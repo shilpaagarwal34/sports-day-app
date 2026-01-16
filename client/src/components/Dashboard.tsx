@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { getDashboard } from '../services/api';
 import './Dashboard.css';
 
@@ -85,11 +84,10 @@ const Dashboard: React.FC = () => {
     : 0;
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <Link to="/" className="back-button">← Back to Home</Link>
-        <h1>📊 Dashboard</h1>
-      </div>
+      <div className="page-container">
+        <div className="page-header">
+          <h1>📊 Dashboard</h1>
+        </div>
 
       {/* Summary Cards */}
       <div className="summary-cards">

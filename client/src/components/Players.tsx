@@ -44,7 +44,6 @@ const Players: React.FC = () => {
   return (
     <div className="players-page">
       <div className="players-header">
-        <Link to="/" className="back-button">← Back to Home</Link>
         <h1>Players ({players.length})</h1>
       </div>
 

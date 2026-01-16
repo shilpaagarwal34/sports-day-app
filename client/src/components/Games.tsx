@@ -143,7 +143,6 @@ const Games: React.FC = () => {
     <div className="games-page">
       <div className="games-header">
         <div className="games-header-top">
-          <Link to="/" className="back-button">← Back to Home</Link>
           <button
             type="button"
             className="add-all-games-btn"
