@@ -137,6 +137,14 @@ export const removePlayerFromGame = async (gameId: number, playerId: number): Pr
   return response.json();
 };
 
+export const removeAllPlayersFromGame = async (gameId: number): Promise<any> => {
+  const response = await fetch(`${API_BASE_URL}/games/${gameId}/players`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to remove all players from game');
+  return response.json();
+};
+
 // Dashboard API
 export interface DashboardGameStat {
   id: number;

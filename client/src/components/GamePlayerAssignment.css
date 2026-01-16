@@ -57,7 +57,8 @@
   font-size: 1.1rem;
 }
 
-.add-all-btn {
+.add-all-btn,
+.reset-all-btn {
   padding: 8px 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -70,14 +71,24 @@
   white-space: nowrap;
 }
 
-.add-all-btn:hover:not(:disabled) {
+.add-all-btn:hover:not(:disabled),
+.reset-all-btn:hover:not(:disabled) {
   transform: scale(1.05);
   box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
 }
 
-.add-all-btn:disabled {
+.add-all-btn:disabled,
+.reset-all-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.reset-all-btn {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+}
+
+.reset-all-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
 }
 
 .requirements-hint {

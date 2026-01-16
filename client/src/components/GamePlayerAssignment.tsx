@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getPlayers, Player, addPlayerToGame, removePlayerFromGame, Game } from '../services/api';
+import { getPlayers, Player, addPlayerToGame, removePlayerFromGame, removeAllPlayersFromGame, Game } from '../services/api';
 import './GamePlayerAssignment.css';
 
 interface GamePlayerAssignmentProps {
@@ -165,6 +165,33 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     }
   };
 
+  const handleResetAllPlayers = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (assignedPlayers.length === 0) {
+      setError('No players assigned to remove');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to remove all ${assignedPlayers.length} player(s) from this game?`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await removeAllPlayersFromGame(game.id);
+      onPlayerAdded();
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to remove all players');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const parseCompositionRequirements = () => {
     const composition = game.team_composition || '';
     const requirements: string[] = [];
@@ -208,7 +235,24 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
       )}
 
       <div className="assignment-section">
-        <h4>Assigned Players ({assignedPlayers.length}{requiredPlayers !== null ? `/${requiredPlayers}` : ''})</h4>
+        <div className="assignment-section-header">
+          <h4>Assigned Players ({assignedPlayers.length}{requiredPlayers !== null ? `/${requiredPlayers}` : ''})</h4>
+          {assignedPlayers.length > 0 && (
+            <button
+              type="button"
+              className="reset-all-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleResetAllPlayers(e);
+              }}
+              disabled={loading}
+              title="Remove all players from this game"
+            >
+              {loading ? 'Resetting...' : '🔄 Reset All'}
+            </button>
+          )}
+        </div>
         {assignedPlayers.length === 0 ? (
           <p className="no-players">No players assigned yet</p>
         ) : (
@@ -230,7 +274,11 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                 <button 
                   type="button"
                   className="remove-btn"
-                  onClick={(e) => handleRemovePlayer(e, player.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleRemovePlayer(e, player.id);
+                  }}
                   title="Remove from game"
                 >
                   ✕
@@ -248,7 +296,11 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
             <button
               type="button"
               className="add-all-btn"
-              onClick={handleAddAllPlayers}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleAddAllPlayers(e);
+              }}
               disabled={loading}
             >
               {loading ? 'Adding...' : '➕ Add All Available'}
@@ -295,7 +347,11 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                 <button 
                   type="button"
                   className="add-btn"
-                  onClick={(e) => handleAddPlayer(e, player.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAddPlayer(e, player.id);
+                  }}
                   title={limitReached ? "Player limit reached" : "Add to game"}
                   disabled={limitReached}
                   style={{ 

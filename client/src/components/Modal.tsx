@@ -16,7 +16,15 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{title}</h2>
-          <button className="modal-close-btn" onClick={onClose}>
+          <button 
+            type="button"
+            className="modal-close-btn" 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
+          >
             ×
           </button>
         </div>
