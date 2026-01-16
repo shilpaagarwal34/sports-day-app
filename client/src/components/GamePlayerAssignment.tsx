@@ -89,15 +89,6 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     }
   };
 
-  const handleAddPlayerClick = (e: React.MouseEvent, playerId: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.nativeEvent.stopImmediatePropagation();
-    e.stopImmediatePropagation();
-    handleAddPlayer(playerId);
-    return false;
-  };
-
   const handleRemovePlayer = async (playerId: number) => {
     try {
       await removePlayerFromGame(game.id, playerId);
@@ -112,7 +103,6 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     e.preventDefault();
     e.stopPropagation();
     e.nativeEvent.stopImmediatePropagation();
-    e.stopImmediatePropagation();
     handleRemovePlayer(playerId);
     return false;
   };
@@ -399,7 +389,6 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                     e.preventDefault();
                     e.stopPropagation();
                     e.nativeEvent.stopImmediatePropagation();
-                    e.stopImmediatePropagation();
                     if (!limitReached) {
                       handleAddPlayer(player.id);
                     }
@@ -418,7 +407,6 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                     e.preventDefault();
                     e.stopPropagation();
                     e.nativeEvent.stopImmediatePropagation();
-                    e.stopImmediatePropagation();
                   }}
                   onTouchStart={(e) => {
                     e.preventDefault();
