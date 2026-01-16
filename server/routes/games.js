@@ -243,6 +243,24 @@ router.post('/:id/players', (req, res) => {
     });
 });
 
+// DELETE remove all players from game (must come before /:id/players/:playerId)
+router.delete('/:id/players', (req, res) => {
+  const db = getDatabase();
+  if (!db) {
+    res.status(503).json({ error: 'Database not initialized' });
+    return;
+  }
+  db.run('DELETE FROM game_players WHERE game_id = ?', 
+    [req.params.id], 
+    function(err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ message: `All players removed from game successfully. ${this.changes} player(s) removed.` });
+    });
+});
+
 // DELETE remove player from game
 router.delete('/:id/players/:playerId', (req, res) => {
   const db = getDatabase();
@@ -262,24 +280,6 @@ router.delete('/:id/players/:playerId', (req, res) => {
         return;
       }
       res.json({ message: 'Player removed from game successfully' });
-    });
-});
-
-// DELETE remove all players from game
-router.delete('/:id/players', (req, res) => {
-  const db = getDatabase();
-  if (!db) {
-    res.status(503).json({ error: 'Database not initialized' });
-    return;
-  }
-  db.run('DELETE FROM game_players WHERE game_id = ?', 
-    [req.params.id], 
-    function(err) {
-      if (err) {
-        res.status(500).json({ error: err.message });
-        return;
-      }
-      res.json({ message: `All players removed from game successfully. ${this.changes} player(s) removed.` });
     });
 });
 

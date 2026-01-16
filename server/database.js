@@ -54,13 +54,18 @@ class DatabaseAdapter {
       }
       
       this.db.query(pgQuery.text, pgQuery.values, (err, result) => {
-        if (err) return callback(err);
+        if (err) {
+          // Call callback with error, but still set this context
+          const resultObj = { lastID: null, changes: 0 };
+          return callback.call(resultObj, err);
+        }
         // Create a result object similar to SQLite's this context
         const resultObj = {
           lastID: result.rows[0]?.id || null,
           changes: result.rowCount || 0
         };
-        callback.call(resultObj, err, resultObj);
+        // Call callback with this context set to resultObj, only pass err (null)
+        callback.call(resultObj, null);
       });
     } else {
       this.db.run(query, params, callback);
