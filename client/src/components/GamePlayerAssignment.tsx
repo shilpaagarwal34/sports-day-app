@@ -13,10 +13,17 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'Male' | 'Female' | 'Adult' | 'Kid' | '50+' | '65+'>('all');
   const [error, setError] = useState<string | null>(null);
+  const [selectedPlayers, setSelectedPlayers] = useState<Set<number>>(new Set());
+  const [isAddingSelected, setIsAddingSelected] = useState(false);
 
   useEffect(() => {
     loadPlayers();
   }, []);
+
+  // Clear selections when filter changes
+  useEffect(() => {
+    setSelectedPlayers(new Set());
+  }, [filter]);
 
   const loadPlayers = async () => {
     try {
@@ -71,8 +78,46 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     return filtered;
   };
 
-  const handleAddPlayer = async (playerId: number) => {
-    // Check if player limit is reached
+  const handleTogglePlayerSelection = (playerId: number) => {
+    setSelectedPlayers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(playerId)) {
+        newSet.delete(playerId);
+      } else {
+        newSet.add(playerId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const available = getAvailablePlayers();
+    const required = getRequiredPlayers();
+    
+    if (limitReached && required !== null) {
+      return; // Can't select if limit is reached
+    }
+    
+    let playersToSelect = available;
+    if (required !== null) {
+      const remaining = required - assignedPlayers.length;
+      playersToSelect = available.slice(0, remaining);
+    }
+    
+    setSelectedPlayers(new Set(playersToSelect.map(p => p.id)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedPlayers(new Set());
+  };
+
+  const handleAddSelectedPlayers = async () => {
+    if (selectedPlayers.size === 0) {
+      setError('Please select at least one player to add');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
     if (isPlayerLimitReached()) {
       const required = getRequiredPlayers();
       setError(`Cannot add more players. This game requires ${required} players and all slots are filled.`);
@@ -80,12 +125,49 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
       return;
     }
 
+    const required = getRequiredPlayers();
+    if (required !== null) {
+      const remaining = required - assignedPlayers.length;
+      if (selectedPlayers.size > remaining) {
+        setError(`You can only add ${remaining} more player(s). Please deselect some players.`);
+        setTimeout(() => setError(null), 5000);
+        return;
+      }
+    }
+
     try {
-      await addPlayerToGame(game.id, playerId);
+      setIsAddingSelected(true);
+      setError(null);
+      
+      const playersToAdd = Array.from(selectedPlayers);
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const playerId of playersToAdd) {
+        try {
+          await addPlayerToGame(game.id, playerId);
+          successCount++;
+        } catch (err: any) {
+          failCount++;
+          console.error(`Failed to add player ${playerId}:`, err);
+        }
+      }
+
+      // Clear selections after adding
+      setSelectedPlayers(new Set());
+      
+      // Refresh the player list
       onPlayerAdded();
+      
+      if (failCount > 0) {
+        setError(`Added ${successCount} player(s). ${failCount} failed.`);
+        setTimeout(() => setError(null), 5000);
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to add player');
+      setError(err.message || 'Failed to add selected players');
       setTimeout(() => setError(null), 3000);
+    } finally {
+      setIsAddingSelected(false);
     }
   };
 
@@ -107,65 +189,6 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     return false;
   };
 
-  const handleAddAllPlayers = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const required = getRequiredPlayers();
-    const available = getAvailablePlayers();
-    
-    if (available.length === 0) {
-      setError('No available players to add');
-      setTimeout(() => setError(null), 3000);
-      return;
-    }
-
-    // Determine how many players to add
-    let playersToAdd = available;
-    if (required !== null) {
-      // If there's a limit, only add up to the limit
-      const remaining = required - assignedPlayers.length;
-      if (remaining <= 0) {
-        setError(`Game already has ${assignedPlayers.length}/${required} players. Cannot add more.`);
-        setTimeout(() => setError(null), 3000);
-        return;
-      }
-      playersToAdd = available.slice(0, remaining);
-    }
-
-    // Add players one by one
-    try {
-      setLoading(true);
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const player of playersToAdd) {
-        try {
-          await addPlayerToGame(game.id, player.id);
-          successCount++;
-        } catch (err: any) {
-          failCount++;
-          console.error(`Failed to add ${player.name}:`, err);
-        }
-      }
-
-      if (successCount > 0) {
-        onPlayerAdded();
-        if (failCount > 0) {
-          setError(`Added ${successCount} players. ${failCount} failed.`);
-          setTimeout(() => setError(null), 5000);
-        }
-      } else {
-        setError('Failed to add any players');
-        setTimeout(() => setError(null), 3000);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to add players');
-      setTimeout(() => setError(null), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleResetAllPlayers = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -328,19 +351,48 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
       <div className="assignment-section">
         <div className="assignment-section-header">
           <h4>Available Players ({availablePlayers.length})</h4>
-          {availablePlayers.length > 0 && !limitReached && getRequiredPlayers() === null && (
-            <button
-              type="button"
-              className="add-all-btn"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleAddAllPlayers(e);
-              }}
-              disabled={loading}
-            >
-              {loading ? 'Adding...' : '➕ Add All Available'}
-            </button>
+          {availablePlayers.length > 0 && !limitReached && (
+            <div className="selection-controls">
+              <button
+                type="button"
+                className="select-all-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSelectAll();
+                }}
+                disabled={limitReached}
+              >
+                Select All
+              </button>
+              {selectedPlayers.size > 0 && (
+                <button
+                  type="button"
+                  className="deselect-all-btn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDeselectAll();
+                  }}
+                >
+                  Deselect All ({selectedPlayers.size})
+                </button>
+              )}
+              {selectedPlayers.size > 0 && (
+                <button
+                  type="button"
+                  className="add-selected-btn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAddSelectedPlayers();
+                  }}
+                  disabled={isAddingSelected || limitReached}
+                >
+                  {isAddingSelected ? 'Adding...' : `➕ Add Selected (${selectedPlayers.size})`}
+                </button>
+              )}
+            </div>
           )}
         </div>
         
@@ -366,75 +418,60 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
           <p className="no-players">No available players match the criteria</p>
         ) : (
           <div className="players-list available">
-            {availablePlayers.map(player => (
-              <div 
-                key={player.id} 
-                className="player-item available"
-                onMouseDown={(e) => {
-                  // Prevent any default behavior on the container
-                  if (e.target === e.currentTarget) {
-                    e.preventDefault();
-                  }
-                }}
-              >
-                <span className="player-name">{player.name}</span>
-                {player.team_name && (
-                  <span className="player-team" style={{ color: player.team_color }}>
-                    {player.team_name}
-                  </span>
-                )}
-                {player.gender && (
-                  <span className="player-badge gender">{player.gender}</span>
-                )}
-                {player.age_category && (
-                  <span className="player-badge age">{player.age_category}</span>
-                )}
-                <div
-                  role="button"
-                  tabIndex={limitReached ? -1 : 0}
-                  className="add-btn"
+            {availablePlayers.map(player => {
+              const isSelected = selectedPlayers.has(player.id);
+              const canSelect = !limitReached;
+              
+              return (
+                <div 
+                  key={player.id} 
+                  className={`player-item available ${isSelected ? 'selected' : ''}`}
                   onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.nativeEvent.stopImmediatePropagation();
-                    if (!limitReached) {
-                      handleAddPlayer(player.id);
-                    }
-                    return false;
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (!limitReached) {
-                        handleAddPlayer(player.id);
+                    if (canSelect && e.target !== e.currentTarget) {
+                      // Only toggle if clicking on the checkbox or the item itself, not on badges
+                      const target = e.target as HTMLElement;
+                      if (target.tagName !== 'SPAN' || target.classList.contains('player-name') || target.classList.contains('player-team')) {
+                        handleTogglePlayerSelection(player.id);
                       }
                     }
                   }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.nativeEvent.stopImmediatePropagation();
-                  }}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  title={limitReached ? "Player limit reached" : "Add to game"}
-                  style={{ 
-                    opacity: limitReached ? 0.5 : 1,
-                    cursor: limitReached ? 'not-allowed' : 'pointer',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    MozUserSelect: 'none',
-                    msUserSelect: 'none',
-                    pointerEvents: limitReached ? 'none' : 'auto'
-                  }}
                 >
-                  +
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.nativeEvent.stopImmediatePropagation();
+                      if (canSelect) {
+                        handleTogglePlayerSelection(player.id);
+                      }
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.nativeEvent.stopImmediatePropagation();
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                    disabled={!canSelect}
+                    className="player-checkbox"
+                  />
+                  <span className="player-name">{player.name}</span>
+                  {player.team_name && (
+                    <span className="player-team" style={{ color: player.team_color }}>
+                      {player.team_name}
+                    </span>
+                  )}
+                  {player.gender && (
+                    <span className="player-badge gender">{player.gender}</span>
+                  )}
+                  {player.age_category && (
+                    <span className="player-badge age">{player.age_category}</span>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

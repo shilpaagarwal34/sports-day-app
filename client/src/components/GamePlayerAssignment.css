@@ -152,6 +152,16 @@
 
 .player-item.available {
   border-left: 4px solid #007bff;
+  cursor: pointer;
+}
+
+.player-item.available.selected {
+  background: #e7f3ff;
+  border-left: 4px solid #28a745;
+}
+
+.player-item.available:hover {
+  background: #f0f8ff;
 }
 
 .player-name {
@@ -227,6 +237,81 @@
 
 .remove-btn:hover {
   background: #c82333;
+}
+
+.player-checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  margin-right: 5px;
+  flex-shrink: 0;
+}
+
+.player-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.selection-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.select-all-btn,
+.deselect-all-btn,
+.add-selected-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.select-all-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.select-all-btn:hover:not(:disabled) {
+  background: #5a6268;
+  transform: scale(1.05);
+}
+
+.select-all-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.deselect-all-btn {
+  background: #ffc107;
+  color: #333;
+}
+
+.deselect-all-btn:hover {
+  background: #e0a800;
+  transform: scale(1.05);
+}
+
+.add-selected-btn {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+}
+
+.add-selected-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #218838 0%, #1aa179 100%);
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.add-selected-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .no-players {
