@@ -138,14 +138,40 @@ export const removePlayerFromGame = async (gameId: number, playerId: number): Pr
 };
 
 export const removeAllPlayersFromGame = async (gameId: number): Promise<any> => {
-  const response = await fetch(`${API_BASE_URL}/games/${gameId}/players`, {
-    method: 'DELETE',
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(errorData.error || `Failed to remove all players from game (${response.status})`);
+  try {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/players`, {
+      method: 'DELETE',
+    });
+    
+    if (!response.ok) {
+      let errorMessage = `Failed to remove all players from game (${response.status})`;
+      
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (jsonError) {
+        // If response is not JSON, try to get text
+        try {
+          const text = await response.text();
+          if (text) {
+            errorMessage = text;
+          }
+        } catch (textError) {
+          // Keep the default error message
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    return response.json();
+  } catch (err: any) {
+    // Re-throw with better error message
+    if (err.message) {
+      throw err;
+    }
+    throw new Error(`Network error: ${err.message || 'Failed to connect to server'}`);
   }
-  return response.json();
 };
 
 // Dashboard API

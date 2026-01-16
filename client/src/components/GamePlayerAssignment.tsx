@@ -189,7 +189,15 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
       onPlayerAdded();
     } catch (err: any) {
       console.error('Error removing all players:', err);
-      const errorMessage = err.message || 'Failed to remove all players';
+      // Extract error message more reliably
+      let errorMessage = 'Failed to remove all players';
+      if (err && err.message) {
+        errorMessage = err.message;
+      } else if (err && typeof err === 'string') {
+        errorMessage = err;
+      } else if (err && err.toString) {
+        errorMessage = err.toString();
+      }
       setError(errorMessage);
       setTimeout(() => setError(null), 5000);
     } finally {
