@@ -68,35 +68,33 @@ const Games: React.FC = () => {
       const allPlayers = await getPlayers();
       let successCount = 0;
       let failCount = 0;
+      let gamesProcessed = 0;
 
-      for (const game of games) {
+      // Only process games with "All Players" in team composition
+      const allPlayersGames = games.filter(game => {
+        const composition = game.team_composition || '';
+        return composition.toLowerCase().includes('all players');
+      });
+
+      if (allPlayersGames.length === 0) {
+        alert('No games found with "All Players" criteria. This feature only works for games that allow all players.');
+        setIsAddingAll(false);
+        return;
+      }
+
+      for (const game of allPlayersGames) {
         // Get current players for this game
         const currentPlayers = await getGamePlayers(game.id);
         const currentPlayerIds = new Set(currentPlayers.map(p => p.id));
         
-        // Get required players count
-        const composition = game.team_composition || '';
-        let requiredPlayers = null;
-        if (!composition.toLowerCase().includes('all players')) {
-          const match = composition.match(/(\d+)\s+Players?/i);
-          if (match) {
-            requiredPlayers = parseInt(match[1], 10);
-          }
+        // Get available players (not already assigned)
+        const playersToAdd = allPlayers.filter(p => !currentPlayerIds.has(p.id));
+
+        if (playersToAdd.length === 0) {
+          continue; // All players already assigned
         }
 
-        // Determine which players to add
-        let playersToAdd = allPlayers.filter(p => !currentPlayerIds.has(p.id));
-        
-        if (requiredPlayers !== null) {
-          const remaining = requiredPlayers - currentPlayers.length;
-          if (remaining > 0) {
-            playersToAdd = playersToAdd.slice(0, remaining);
-          } else {
-            continue; // Game already full
-          }
-        }
-
-        // Add players to this game
+        // Add all available players to this game
         for (const player of playersToAdd) {
           try {
             await addPlayerToGame(game.id, player.id);
@@ -106,6 +104,7 @@ const Games: React.FC = () => {
             console.error(`Failed to add ${player.name} to ${game.name}:`, err);
           }
         }
+        gamesProcessed++;
       }
 
       // Refresh games list
@@ -115,7 +114,7 @@ const Games: React.FC = () => {
         await loadGamePlayers(selectedGame.id);
       }
 
-      alert(`Successfully added players to games!\n${successCount} players added.${failCount > 0 ? `\n${failCount} failed.` : ''}`);
+      alert(`Successfully added players to "All Players" games!\n${gamesProcessed} games processed.\n${successCount} players added.${failCount > 0 ? `\n${failCount} failed.` : ''}`);
     } catch (err: any) {
       alert(`Error: ${err.message || 'Failed to add players to games'}`);
     } finally {

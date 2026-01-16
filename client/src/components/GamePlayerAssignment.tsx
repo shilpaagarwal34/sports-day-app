@@ -244,7 +244,7 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
       <div className="assignment-section">
         <div className="assignment-section-header">
           <h4>Available Players ({availablePlayers.length})</h4>
-          {availablePlayers.length > 0 && !limitReached && (
+          {availablePlayers.length > 0 && !limitReached && getRequiredPlayers() === null && (
             <button
               type="button"
               className="add-all-btn"
