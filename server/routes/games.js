@@ -330,17 +330,21 @@ router.delete('/:id/players', (req, res) => {
 });
 
 // DELETE remove player from game
-// IMPORTANT: This route must come AFTER /:id/players to avoid matching conflicts
+// IMPORTANT: This route must come AFTER /:id/players/all to avoid matching conflicts
 router.delete('/:id/players/:playerId', (req, res) => {
-  // Check if playerId is actually a number (to avoid matching /:id/players route)
+  // Reject "all" as a playerId - this should match /:id/players/all route instead
+  if (req.params.playerId === 'all' || req.params.playerId === 'All' || req.params.playerId === 'ALL') {
+    return res.status(404).json({ error: 'Use /:id/players/all endpoint to remove all players' });
+  }
+  
+  // Check if playerId is actually a number
   const playerId = parseInt(req.params.playerId, 10);
   if (isNaN(playerId)) {
     // If playerId is not a number, this route shouldn't match
-    // Let Express continue to next route (which should be /:id/players)
-    return res.status(404).json({ error: 'Invalid player ID format' });
+    return res.status(404).json({ error: 'Invalid player ID format. Player ID must be a number.' });
   }
   
-  console.log(`[ROUTE MATCH] DELETE /:id/players/:playerId - gameId: ${req.params.id}, playerId: ${req.params.playerId}`);
+  console.log(`[ROUTE MATCH] DELETE /:id/players/:playerId - gameId: ${req.params.id}, playerId: ${playerId}`);
   
   const db = getDatabase();
   if (!db) {
