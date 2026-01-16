@@ -76,9 +76,9 @@ router.get('/', (req, res) => {
       const processedGameStats = gameStats.map(game => {
         let required = game.required_players;
         
-        // Handle "All Players" or unlimited games
+        // Handle "All Players" - set to 13 (max players)
         if (game.team_composition?.includes('All Players') || game.team_composition?.includes('All players')) {
-          required = null;
+          required = 13; // Max players is 13
         } else if (!required || required === 999) {
           // Try to extract number from composition text (e.g., "4 Players", "9 Players")
           const match = game.team_composition?.match(/(\d+)\s*Players?/i);

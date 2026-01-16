@@ -48,16 +48,16 @@ const Dashboard: React.FC = () => {
   };
 
   const getProgressColor = (assigned: number, required: number | null) => {
-    if (required === null) return '#667eea';
-    const percentage = (assigned / required) * 100;
+    const maxPlayers = required ?? 13; // Use 13 as max for "All Players" games
+    const percentage = (assigned / maxPlayers) * 100;
     if (percentage >= 100) return '#28a745';
     if (percentage >= 50) return '#ffc107';
     return '#dc3545';
   };
 
   const getProgressWidth = (assigned: number, required: number | null) => {
-    if (required === null) return 100;
-    return Math.min(100, (assigned / required) * 100);
+    const maxPlayers = required ?? 13; // Use 13 as max for "All Players" games
+    return Math.min(100, (assigned / maxPlayers) * 100);
   };
 
   if (loading) {
@@ -137,11 +137,16 @@ const Dashboard: React.FC = () => {
               <div className="progress-container">
                 <div className="progress-info">
                   <span className="progress-label">
-                    {game.assigned_players} / {game.required_players || '∞'} players
+                    {game.assigned_players} / {game.required_players ?? 13} players
                   </span>
                   {game.remaining_players !== null && (
                     <span className={`remaining ${game.remaining_players === 0 ? 'complete' : 'pending'}`}>
                       {game.remaining_players === 0 ? '✓ Complete' : `${game.remaining_players} remaining`}
+                    </span>
+                  )}
+                  {game.remaining_players === null && (
+                    <span className="remaining pending">
+                      {Math.max(0, 13 - game.assigned_players)} remaining
                     </span>
                   )}
                 </div>
