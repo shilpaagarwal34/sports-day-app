@@ -255,6 +255,9 @@ router.delete('/:id/players', (req, res) => {
   console.log(`Attempting to remove all players from game ${gameId}`);
   
   // Use the database adapter's run method which handles both SQLite and PostgreSQL
+  // Store changes in a variable that can be accessed regardless of callback context
+  let changesCount = 0;
+  
   db.run('DELETE FROM game_players WHERE game_id = ?', 
     [gameId], 
     function(err) {
@@ -264,9 +267,14 @@ router.delete('/:id/players', (req, res) => {
         return;
       }
       // For PostgreSQL, changes is set via callback.call, for SQLite it's this.changes
-      const changes = (this && this.changes !== undefined) ? this.changes : 0;
-      console.log(`Successfully removed ${changes} player(s) from game ${gameId}`);
-      res.json({ message: `All players removed from game successfully. ${changes} player(s) removed.` });
+      // Try to get changes from this context (works for both SQLite and PostgreSQL adapter)
+      if (this && typeof this.changes === 'number') {
+        changesCount = this.changes;
+      } else {
+        changesCount = 0;
+      }
+      console.log(`Successfully removed ${changesCount} player(s) from game ${gameId}`);
+      res.json({ message: `All players removed from game successfully. ${changesCount} player(s) removed.` });
     });
 });
 
