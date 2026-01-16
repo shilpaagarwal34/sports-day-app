@@ -191,18 +191,55 @@ router.post('/:id/players', (req, res) => {
     return;
   }
 
-  db.run('INSERT INTO game_players (game_id, player_id) VALUES (?, ?)', 
-    [req.params.id, player_id], 
-    function(err) {
+  // First, get the game to check player limit
+  db.get('SELECT team_composition, (SELECT COUNT(*) FROM game_players WHERE game_id = ?) as current_count FROM games WHERE id = ?', 
+    [req.params.id, req.params.id], 
+    (err, game) => {
       if (err) {
-        if (err.message.includes('UNIQUE')) {
-          res.status(400).json({ error: 'Player already assigned to this game' });
-          return;
-        }
         res.status(500).json({ error: err.message });
         return;
       }
-      res.json({ id: this.lastID, game_id: req.params.id, player_id });
+      
+      if (!game) {
+        res.status(404).json({ error: 'Game not found' });
+        return;
+      }
+
+      // Check if player limit is reached
+      const composition = game.team_composition || '';
+      let requiredPlayers = null;
+      
+      // Check for "All Players" - no limit
+      if (!composition.toLowerCase().includes('all players')) {
+        // Extract number from patterns like "4 Players", "9 Players", etc.
+        const match = composition.match(/(\d+)\s+Players?/i);
+        if (match) {
+          requiredPlayers = parseInt(match[1], 10);
+          
+          // Check if limit is reached
+          if (game.current_count >= requiredPlayers) {
+            res.status(400).json({ 
+              error: `Cannot add more players. This game requires ${requiredPlayers} players and all slots are filled (${game.current_count}/${requiredPlayers}).` 
+            });
+            return;
+          }
+        }
+      }
+
+      // Add player if limit not reached
+      db.run('INSERT INTO game_players (game_id, player_id) VALUES (?, ?)', 
+        [req.params.id, player_id], 
+        function(err) {
+          if (err) {
+            if (err.message.includes('UNIQUE')) {
+              res.status(400).json({ error: 'Player already assigned to this game' });
+              return;
+            }
+            res.status(500).json({ error: err.message });
+            return;
+          }
+          res.json({ id: this.lastID, game_id: req.params.id, player_id });
+        });
     });
 });
 

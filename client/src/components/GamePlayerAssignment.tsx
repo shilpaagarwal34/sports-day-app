@@ -31,6 +31,31 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     }
   };
 
+  const getRequiredPlayers = (): number | null => {
+    const composition = game.team_composition || '';
+    
+    // Check for "All Players" - no limit
+    if (composition.toLowerCase().includes('all players')) {
+      return null;
+    }
+    
+    // Extract number from patterns like "4 Players", "9 Players", etc.
+    const match = composition.match(/(\d+)\s+Players?/i);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+    
+    return null; // Unknown requirement
+  };
+
+  const isPlayerLimitReached = (): boolean => {
+    const required = getRequiredPlayers();
+    if (required === null) {
+      return false; // No limit
+    }
+    return assignedPlayers.length >= required;
+  };
+
   const getAvailablePlayers = () => {
     const assignedIds = new Set(assignedPlayers.map(p => p.id));
     let filtered = allPlayers.filter(p => !assignedIds.has(p.id));
@@ -47,6 +72,14 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
   };
 
   const handleAddPlayer = async (playerId: number) => {
+    // Check if player limit is reached
+    if (isPlayerLimitReached()) {
+      const required = getRequiredPlayers();
+      setError(`Cannot add more players. This game requires ${required} players and all slots are filled.`);
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
+
     try {
       await addPlayerToGame(game.id, playerId);
       onPlayerAdded();
@@ -91,6 +124,8 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
 
   const availablePlayers = getAvailablePlayers();
   const requirements = parseCompositionRequirements();
+  const requiredPlayers = getRequiredPlayers();
+  const limitReached = isPlayerLimitReached();
 
   if (loading) {
     return <div className="assignment-loading">Loading players...</div>;
@@ -100,8 +135,14 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     <div className="game-player-assignment">
       {error && <div className="assignment-error">{error}</div>}
 
+      {limitReached && requiredPlayers !== null && (
+        <div className="assignment-warning">
+          ⚠️ Player limit reached: {assignedPlayers.length}/{requiredPlayers} players assigned. Cannot add more players.
+        </div>
+      )}
+
       <div className="assignment-section">
-        <h4>Assigned Players ({assignedPlayers.length})</h4>
+        <h4>Assigned Players ({assignedPlayers.length}{requiredPlayers !== null ? `/${requiredPlayers}` : ''})</h4>
         {assignedPlayers.length === 0 ? (
           <p className="no-players">No players assigned yet</p>
         ) : (
@@ -175,7 +216,12 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                 <button 
                   className="add-btn"
                   onClick={() => handleAddPlayer(player.id)}
-                  title="Add to game"
+                  title={limitReached ? "Player limit reached" : "Add to game"}
+                  disabled={limitReached}
+                  style={{ 
+                    opacity: limitReached ? 0.5 : 1,
+                    cursor: limitReached ? 'not-allowed' : 'pointer'
+                  }}
                 >
                   +
                 </button>

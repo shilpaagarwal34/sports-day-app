@@ -25,6 +25,16 @@
   border: 1px solid #fcc;
 }
 
+.assignment-warning {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
+  padding: 12px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  font-weight: 500;
+}
+
 .assignment-section {
   margin-bottom: 25px;
 }
@@ -148,8 +158,14 @@
   color: white;
 }
 
-.add-btn:hover {
+.add-btn:hover:not(:disabled) {
   background: #218838;
+}
+
+.add-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .remove-btn {
