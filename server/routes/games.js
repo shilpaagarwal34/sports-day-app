@@ -243,7 +243,8 @@ router.post('/:id/players', (req, res) => {
     });
 });
 
-// DELETE remove all players from game (must come before /:id/players/:playerId)
+// DELETE remove all players from game
+// IMPORTANT: This route must come BEFORE /:id/players/:playerId to ensure correct matching
 router.delete('/:id/players', (req, res) => {
   const db = getDatabase();
   if (!db) {
@@ -251,8 +252,13 @@ router.delete('/:id/players', (req, res) => {
     return;
   }
   
-  const gameId = req.params.id;
-  console.log(`Attempting to remove all players from game ${gameId}`);
+  const gameId = parseInt(req.params.id, 10);
+  if (isNaN(gameId)) {
+    res.status(400).json({ error: 'Invalid game ID' });
+    return;
+  }
+  
+  console.log(`[DELETE /:id/players] Attempting to remove all players from game ${gameId}`);
   
   // Use the database adapter's run method which handles both SQLite and PostgreSQL
   // Store changes in a variable that can be accessed regardless of callback context
@@ -262,7 +268,7 @@ router.delete('/:id/players', (req, res) => {
     [gameId], 
     function(err) {
       if (err) {
-        console.error('Error removing all players from game:', err);
+        console.error('[DELETE /:id/players] Error removing all players from game:', err);
         res.status(500).json({ error: err.message || 'Failed to remove all players from game' });
         return;
       }
@@ -273,7 +279,7 @@ router.delete('/:id/players', (req, res) => {
       } else {
         changesCount = 0;
       }
-      console.log(`Successfully removed ${changesCount} player(s) from game ${gameId}`);
+      console.log(`[DELETE /:id/players] Successfully removed ${changesCount} player(s) from game ${gameId}`);
       res.json({ message: `All players removed from game successfully. ${changesCount} player(s) removed.` });
     });
 });
