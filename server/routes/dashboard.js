@@ -11,7 +11,26 @@ router.get('/', (req, res) => {
   }
 
   // Get game statistics with player counts
-  db.all(`
+  // Use PostgreSQL-compatible query (works with both SQLite and PostgreSQL)
+  const isPostgres = process.env.DATABASE_URL;
+  const query = isPostgres ? `
+    SELECT 
+      g.id,
+      g.name,
+      g.date,
+      g.team_composition,
+      COUNT(gp.player_id) as assigned_players,
+      CASE 
+        WHEN g.team_composition LIKE '%All Players%' THEN 999
+        WHEN g.team_composition LIKE '%Players%' THEN 
+          CAST(SUBSTRING(g.team_composition FROM '^(\d+)') AS INTEGER)
+        ELSE NULL
+      END as required_players
+    FROM games g
+    LEFT JOIN game_players gp ON g.id = gp.game_id
+    GROUP BY g.id, g.name, g.date, g.team_composition
+    ORDER BY g.date, g.name
+  ` : `
     SELECT 
       g.id,
       g.name,
@@ -27,7 +46,9 @@ router.get('/', (req, res) => {
     LEFT JOIN game_players gp ON g.id = gp.game_id
     GROUP BY g.id, g.name, g.date, g.team_composition
     ORDER BY g.date, g.name
-  `, (err, gameStats) => {
+  `;
+
+  db.all(query, [], (err, gameStats) => {
     if (err) {
       res.status(500).json({ error: err.message });
       return;

@@ -1,133 +1,352 @@
 const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const path = require('path');
 const fs = require('fs');
 
-// Determine database path based on environment
-// Railway: Use /data volume for persistence (create if doesn't exist)
-// Vercel: Use /tmp directory (ephemeral, but writable)
-// Local: Use server directory
-const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
-const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME;
-
-let DB_PATH;
-if (isVercel) {
-  // Vercel serverless - use /tmp (ephemeral)
-  DB_PATH = path.join('/tmp', 'sports_day.db');
-} else if (isRailway) {
-  // Railway - use /data volume for persistence
-  const dataDir = '/data';
-  // Ensure /data directory exists (Railway volume should be mounted here)
-  if (!fs.existsSync(dataDir)) {
-    // If /data doesn't exist, try /persist or fallback to project directory
-    if (fs.existsSync('/persist')) {
-      DB_PATH = path.join('/persist', 'sports_day.db');
-    } else {
-      // Fallback: use project directory (will be ephemeral but at least works)
-      console.warn('Warning: /data volume not found. Using project directory (data will be lost on restart).');
-      DB_PATH = path.join(__dirname, 'sports_day.db');
-    }
-  } else {
-    DB_PATH = path.join(dataDir, 'sports_day.db');
-  }
-} else {
-  // Local development - use server directory
-  DB_PATH = path.join(__dirname, 'sports_day.db');
-}
-
-console.log('Database path:', DB_PATH);
+// Check if using PostgreSQL (Supabase/Railway PostgreSQL)
+const DATABASE_URL = process.env.DATABASE_URL;
+const usePostgreSQL = !!DATABASE_URL;
 
 let db = null;
+let pgPool = null;
 
-function initDatabase() {
+// Database adapter to provide consistent interface
+class DatabaseAdapter {
+  constructor(dbInstance, isPostgres = false) {
+    this.db = dbInstance;
+    this.isPostgres = isPostgres;
+  }
+
+  // Execute query and return all rows
+  all(query, params, callback) {
+    if (this.isPostgres) {
+      // Convert SQLite ? placeholders to PostgreSQL $1, $2, etc.
+      const pgQuery = this.convertQuery(query, params);
+      this.db.query(pgQuery.text, pgQuery.values, (err, result) => {
+        if (err) return callback(err);
+        callback(null, result.rows);
+      });
+    } else {
+      this.db.all(query, params, callback);
+    }
+  }
+
+  // Execute query and return single row
+  get(query, params, callback) {
+    if (this.isPostgres) {
+      const pgQuery = this.convertQuery(query, params);
+      this.db.query(pgQuery.text, pgQuery.values, (err, result) => {
+        if (err) return callback(err);
+        callback(null, result.rows[0] || null);
+      });
+    } else {
+      this.db.get(query, params, callback);
+    }
+  }
+
+  // Execute query (INSERT/UPDATE/DELETE)
+  run(query, params, callback) {
+    if (this.isPostgres) {
+      // For INSERT queries, add RETURNING id to get the inserted ID
+      let pgQuery = this.convertQuery(query, params);
+      if (query.trim().toUpperCase().startsWith('INSERT') && !pgQuery.text.includes('RETURNING')) {
+        pgQuery.text += ' RETURNING id';
+      }
+      
+      this.db.query(pgQuery.text, pgQuery.values, (err, result) => {
+        if (err) return callback(err);
+        // Create a result object similar to SQLite's this context
+        const resultObj = {
+          lastID: result.rows[0]?.id || null,
+          changes: result.rowCount || 0
+        };
+        callback.call(resultObj, err, resultObj);
+      });
+    } else {
+      this.db.run(query, params, callback);
+    }
+  }
+
+  // Convert SQLite query to PostgreSQL
+  convertQuery(query, params) {
+    if (!params || params.length === 0) {
+      return { text: query, values: [] };
+    }
+
+    let paramIndex = 1;
+    const values = [];
+    const text = query.replace(/\?/g, () => {
+      values.push(params[paramIndex - 1]);
+      return `$${paramIndex++}`;
+    });
+
+    return { text, values };
+  }
+
+  // Serialize operations (for SQLite compatibility)
+  serialize(callback) {
+    if (this.isPostgres) {
+      // PostgreSQL doesn't need serialization, just run callback
+      callback();
+    } else {
+      this.db.serialize(callback);
+    }
+  }
+
+  // Prepare statement (for SQLite compatibility)
+  prepare(query) {
+    if (this.isPostgres) {
+      // Return a mock prepared statement that works with PostgreSQL
+      return {
+        run: (...args) => {
+          const values = args.slice(0, -1);
+          const callback = args[args.length - 1];
+          let finalQuery = this.convertQuery(query, values);
+          
+          // For INSERT queries, add RETURNING id
+          if (query.trim().toUpperCase().startsWith('INSERT') && !finalQuery.text.includes('RETURNING')) {
+            finalQuery.text += ' RETURNING id';
+          }
+          
+          this.db.query(finalQuery.text, finalQuery.values, (err, result) => {
+            if (callback) {
+              const resultObj = {
+                lastID: result?.rows[0]?.id || null,
+                changes: result?.rowCount || 0
+              };
+              callback.call(resultObj, err, resultObj);
+            }
+          });
+        },
+        finalize: (callback) => {
+          if (callback) callback(null);
+        }
+      };
+    } else {
+      return this.db.prepare(query);
+    }
+  }
+}
+
+// Initialize PostgreSQL
+async function initPostgreSQL() {
+  try {
+    pgPool = new Pool({
+      connectionString: DATABASE_URL,
+      ssl: DATABASE_URL.includes('supabase') ? { rejectUnauthorized: false } : false
+    });
+
+    // Test connection
+    const client = await pgPool.connect();
+    await client.query('SELECT NOW()');
+    client.release();
+
+    console.log('Connected to PostgreSQL database');
+    db = new DatabaseAdapter(pgPool, true);
+    return db;
+  } catch (err) {
+    console.error('PostgreSQL connection error:', err);
+    throw err;
+  }
+}
+
+// Initialize SQLite
+function initSQLite() {
   return new Promise((resolve, reject) => {
-    db = new sqlite3.Database(DB_PATH, (err) => {
+    const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+    const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME;
+
+    let DB_PATH;
+    if (isVercel) {
+      DB_PATH = path.join('/tmp', 'sports_day.db');
+    } else if (isRailway) {
+      const dataDir = '/data';
+      if (!fs.existsSync(dataDir)) {
+        if (fs.existsSync('/persist')) {
+          DB_PATH = path.join('/persist', 'sports_day.db');
+        } else {
+          console.warn('Warning: /data volume not found. Using project directory (data will be lost on restart).');
+          DB_PATH = path.join(__dirname, 'sports_day.db');
+        }
+      } else {
+        DB_PATH = path.join(dataDir, 'sports_day.db');
+      }
+    } else {
+      DB_PATH = path.join(__dirname, 'sports_day.db');
+    }
+
+    console.log('Using SQLite database at:', DB_PATH);
+
+    const sqliteDb = new sqlite3.Database(DB_PATH, (err) => {
       if (err) {
-        console.error('Error opening database:', err);
+        console.error('Error opening SQLite database:', err);
         reject(err);
         return;
       }
+      db = new DatabaseAdapter(sqliteDb, false);
+      resolve(db);
+    });
+  });
+}
 
-      // Create tables
-      db.serialize(() => {
-        // Teams table
-        db.run(`CREATE TABLE IF NOT EXISTS teams (
+// Initialize database
+async function initDatabase() {
+  if (usePostgreSQL) {
+    return await initPostgreSQL();
+  } else {
+    return await initSQLite();
+  }
+}
+
+// Create tables
+async function createTables() {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
+  return new Promise((resolve, reject) => {
+    db.serialize(() => {
+      // Teams table
+      const teamsTable = usePostgreSQL ? `
+        CREATE TABLE IF NOT EXISTS teams (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          color TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      ` : `
+        CREATE TABLE IF NOT EXISTS teams (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL UNIQUE,
           color TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`, (err) => {
-          if (err) {
-            console.error('Error creating teams table:', err);
-            reject(err);
-            return;
-          }
-        });
+        )
+      `;
+
+      db.run(teamsTable, [], (err) => {
+        if (err) {
+          console.error('Error creating teams table:', err);
+          reject(err);
+          return;
+        }
 
         // Players table
-        db.run(`CREATE TABLE IF NOT EXISTS players (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          team_id INTEGER,
-          gender TEXT CHECK(gender IN ('Male', 'Female', NULL)),
-          age_category TEXT CHECK(age_category IN ('Adult', 'Kid', '50+', '65+', NULL)),
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (team_id) REFERENCES teams(id)
-        )`, (err) => {
+        const playersTable = usePostgreSQL ? `
+          CREATE TABLE IF NOT EXISTS players (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            team_id INTEGER,
+            gender TEXT CHECK(gender IN ('Male', 'Female', NULL)),
+            age_category TEXT CHECK(age_category IN ('Adult', 'Kid', '50+', '65+', NULL)),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (team_id) REFERENCES teams(id)
+          )
+        ` : `
+          CREATE TABLE IF NOT EXISTS players (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            team_id INTEGER,
+            gender TEXT CHECK(gender IN ('Male', 'Female', NULL)),
+            age_category TEXT CHECK(age_category IN ('Adult', 'Kid', '50+', '65+', NULL)),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (team_id) REFERENCES teams(id)
+          )
+        `;
+
+        db.run(playersTable, [], (err) => {
           if (err) {
             console.error('Error creating players table:', err);
             reject(err);
             return;
           }
-        });
 
-        // Games table
-        db.run(`CREATE TABLE IF NOT EXISTS games (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          description TEXT,
-          game_rules TEXT,
-          team_composition TEXT,
-          format TEXT,
-          date DATE,
-          team1_id INTEGER,
-          team2_id INTEGER,
-          winner_id INTEGER,
-          status TEXT DEFAULT 'scheduled',
-          scheduled_time DATETIME,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (team1_id) REFERENCES teams(id),
-          FOREIGN KEY (team2_id) REFERENCES teams(id),
-          FOREIGN KEY (winner_id) REFERENCES teams(id)
-        )`, (err) => {
-          if (err) {
-            console.error('Error creating games table:', err);
-            reject(err);
-            return;
-          }
-        });
+          // Games table
+          const gamesTable = usePostgreSQL ? `
+            CREATE TABLE IF NOT EXISTS games (
+              id SERIAL PRIMARY KEY,
+              name TEXT NOT NULL,
+              description TEXT,
+              game_rules TEXT,
+              team_composition TEXT,
+              format TEXT,
+              date DATE,
+              team1_id INTEGER,
+              team2_id INTEGER,
+              winner_id INTEGER,
+              status TEXT DEFAULT 'scheduled',
+              scheduled_time TIMESTAMP,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (team1_id) REFERENCES teams(id),
+              FOREIGN KEY (team2_id) REFERENCES teams(id),
+              FOREIGN KEY (winner_id) REFERENCES teams(id)
+            )
+          ` : `
+            CREATE TABLE IF NOT EXISTS games (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              description TEXT,
+              game_rules TEXT,
+              team_composition TEXT,
+              format TEXT,
+              date DATE,
+              team1_id INTEGER,
+              team2_id INTEGER,
+              winner_id INTEGER,
+              status TEXT DEFAULT 'scheduled',
+              scheduled_time DATETIME,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (team1_id) REFERENCES teams(id),
+              FOREIGN KEY (team2_id) REFERENCES teams(id),
+              FOREIGN KEY (winner_id) REFERENCES teams(id)
+            )
+          `;
 
-        // Game Players junction table
-        db.run(`CREATE TABLE IF NOT EXISTS game_players (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          game_id INTEGER NOT NULL,
-          player_id INTEGER NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-          FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
-          UNIQUE(game_id, player_id)
-        )`, (err) => {
-          if (err) {
-            console.error('Error creating game_players table:', err);
-            reject(err);
-            return;
-          }
-          resolve();
+          db.run(gamesTable, [], (err) => {
+            if (err) {
+              console.error('Error creating games table:', err);
+              reject(err);
+              return;
+            }
+
+            // Game Players junction table
+            const gamePlayersTable = usePostgreSQL ? `
+              CREATE TABLE IF NOT EXISTS game_players (
+                id SERIAL PRIMARY KEY,
+                game_id INTEGER NOT NULL,
+                player_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+                FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+                UNIQUE(game_id, player_id)
+              )
+            ` : `
+              CREATE TABLE IF NOT EXISTS game_players (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id INTEGER NOT NULL,
+                player_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+                FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+                UNIQUE(game_id, player_id)
+              )
+            `;
+
+            db.run(gamePlayersTable, [], (err) => {
+              if (err) {
+                console.error('Error creating game_players table:', err);
+                reject(err);
+                return;
+              }
+              resolve();
+            });
+          });
         });
       });
     });
   });
 }
 
+// Seed database
 function seedDatabase() {
   return new Promise((resolve, reject) => {
     if (!db) {
@@ -136,8 +355,7 @@ function seedDatabase() {
     }
 
     db.serialize(() => {
-      // Check if data already exists
-      db.get('SELECT COUNT(*) as count FROM teams', (err, row) => {
+      db.get('SELECT COUNT(*) as count FROM teams', [], (err, row) => {
         if (err) {
           reject(err);
           return;
@@ -145,7 +363,18 @@ function seedDatabase() {
 
         if (row.count > 0) {
           console.log('Database already seeded');
-          resolve();
+          // Check if players are seeded
+          db.get('SELECT COUNT(*) as count FROM players', [], (err, playerRow) => {
+            if (err) {
+              reject(err);
+              return;
+            }
+            if (playerRow.count === 0) {
+              seedPlayers().then(resolve).catch(reject);
+            } else {
+              resolve();
+            }
+          });
           return;
         }
 
@@ -160,7 +389,7 @@ function seedDatabase() {
         const teamsStmt = db.prepare('INSERT INTO teams (name, color) VALUES (?, ?)');
         
         teams.forEach(team => {
-          teamsStmt.run(team.name, team.color);
+          teamsStmt.run(team.name, team.color, () => {});
         });
         
         teamsStmt.finalize((err) => {
@@ -170,7 +399,7 @@ function seedDatabase() {
           }
           console.log('Sample teams seeded');
 
-          // Insert games from the sheet
+          // Insert games
           const games = [
             {
               name: 'Shoot the Ball - Basket Ball',
@@ -264,7 +493,8 @@ function seedDatabase() {
               game.format,
               game.team_composition,
               game.game_rules,
-              'scheduled'
+              'scheduled',
+              () => {}
             );
           });
           
@@ -274,46 +504,54 @@ function seedDatabase() {
               return;
             }
             console.log('Games seeded');
-            
-            // Seed players from Team C
-            const players = [
-              { name: 'Ashish Modi', gender: 'Male', age_category: 'Adult', team_id: null }, // Captain
-              { name: 'Amit Sinha', gender: 'Male', age_category: 'Adult', team_id: null }, // Maestro 1
-              { name: 'Abhinav Srivastav', gender: 'Male', age_category: 'Adult', team_id: null }, // Maestro 2
-              { name: 'Rajat Mathur', gender: 'Male', age_category: 'Adult', team_id: null }, // Maestro 3
-              { name: 'Shreyas Vijay', gender: 'Male', age_category: 'Adult', team_id: null }, // Maestro 4
-              { name: 'Sweta Doshi', gender: 'Female', age_category: 'Adult', team_id: null }, // Queens 1
-              { name: 'Shweta Thakur', gender: 'Female', age_category: 'Adult', team_id: null }, // Queens 2
-              { name: 'Shilpa 501', gender: 'Female', age_category: 'Adult', team_id: null }, // Queens 3
-              { name: 'Sriram', gender: 'Male', age_category: '50+', team_id: null }, // 50+
-              { name: 'Jyoti', gender: 'Female', age_category: '50+', team_id: null }, // 50+
-              { name: 'Vaanya', gender: null, age_category: 'Kid', team_id: null }, // U-12 (gender unknown)
-              { name: 'Aarvi Singh', gender: null, age_category: 'Kid', team_id: null }, // U-12 (gender unknown)
-              { name: 'Sushama Pradhan', gender: 'Female', age_category: '50+', team_id: null } // 65+ (using 50+)
-            ];
-
-            const playersStmt = db.prepare('INSERT INTO players (name, gender, age_category, team_id) VALUES (?, ?, ?, ?)');
-            
-            players.forEach(player => {
-              playersStmt.run(
-                player.name,
-                player.gender || null,
-                player.age_category || null,
-                player.team_id || null
-              );
-            });
-            
-            playersStmt.finalize((err) => {
-              if (err) {
-                console.error('Error seeding players:', err);
-                // Don't reject, just log the error
-              } else {
-                console.log('Players seeded');
-              }
-              resolve();
-            });
+            seedPlayers().then(resolve).catch(reject);
           });
         });
+      });
+    });
+  });
+}
+
+function seedPlayers() {
+  return new Promise((resolve, reject) => {
+    db.get('SELECT COUNT(*) as count FROM players', [], (err, row) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      if (row.count > 0) {
+        console.log('Players already seeded');
+        resolve();
+        return;
+      }
+
+      const players = [
+        { name: 'Ashish Modi', gender: 'Male', age_category: 'Adult' },
+        { name: 'Amit Sinha', gender: 'Male', age_category: 'Adult' },
+        { name: 'Abhinav Srivastav', gender: 'Male', age_category: 'Adult' },
+        { name: 'Rajat Mathur', gender: 'Male', age_category: 'Adult' },
+        { name: 'Shreyas Vijay', gender: 'Male', age_category: 'Adult' },
+        { name: 'Sweta Doshi', gender: 'Female', age_category: 'Adult' },
+        { name: 'Shweta Thakur', gender: 'Female', age_category: 'Adult' },
+        { name: 'Shilpa 501', gender: 'Female', age_category: 'Adult' },
+        { name: 'Sriram', gender: 'Male', age_category: '50+' },
+        { name: 'Jyoti', gender: 'Female', age_category: '50+' },
+        { name: 'Vaanya', gender: null, age_category: 'Kid' },
+        { name: 'Aarvi Singh', gender: null, age_category: 'Kid' },
+        { name: 'Sushama Pradhan', gender: 'Female', age_category: '50+' }
+      ];
+
+      const stmt = db.prepare('INSERT INTO players (name, team_id, gender, age_category) VALUES (?, ?, ?, ?)');
+      players.forEach(player => {
+        stmt.run(player.name, null, player.gender, player.age_category, () => {});
+      });
+      stmt.finalize((err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        console.log('Sample players seeded');
+        resolve();
       });
     });
   });
@@ -323,8 +561,21 @@ function getDatabase() {
   return db;
 }
 
+// Initialize database and create tables
+async function initialize() {
+  try {
+    await initDatabase();
+    await createTables();
+    console.log('Database initialized successfully');
+    return db;
+  } catch (err) {
+    console.error('Database initialization error:', err);
+    throw err;
+  }
+}
+
 module.exports = {
-  initDatabase,
+  initDatabase: initialize,
   seedDatabase,
   getDatabase
 };
