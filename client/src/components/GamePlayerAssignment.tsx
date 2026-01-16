@@ -71,34 +71,34 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     return filtered;
   };
 
-  const handleAddPlayer = async (e: React.MouseEvent | React.KeyboardEvent, playerId: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.nativeEvent.stopImmediatePropagation();
-    
+  const handleAddPlayer = async (playerId: number) => {
     // Check if player limit is reached
     if (isPlayerLimitReached()) {
       const required = getRequiredPlayers();
       setError(`Cannot add more players. This game requires ${required} players and all slots are filled.`);
       setTimeout(() => setError(null), 5000);
-      return false;
+      return;
     }
 
     try {
       await addPlayerToGame(game.id, playerId);
       onPlayerAdded();
-      return false;
     } catch (err: any) {
       setError(err.message || 'Failed to add player');
       setTimeout(() => setError(null), 3000);
-      return false;
     }
   };
 
-  const handleRemovePlayer = async (e: React.MouseEvent, playerId: number) => {
+  const handleAddPlayerClick = (e: React.MouseEvent, playerId: number) => {
     e.preventDefault();
     e.stopPropagation();
-    
+    e.nativeEvent.stopImmediatePropagation();
+    e.stopImmediatePropagation();
+    handleAddPlayer(playerId);
+    return false;
+  };
+
+  const handleRemovePlayer = async (playerId: number) => {
     try {
       await removePlayerFromGame(game.id, playerId);
       onPlayerAdded();
@@ -106,6 +106,15 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
       setError(err.message || 'Failed to remove player');
       setTimeout(() => setError(null), 3000);
     }
+  };
+
+  const handleRemovePlayerClick = (e: React.MouseEvent, playerId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.nativeEvent.stopImmediatePropagation();
+    e.stopImmediatePropagation();
+    handleRemovePlayer(playerId);
+    return false;
   };
 
   const handleAddAllPlayers = async (e: React.MouseEvent) => {
@@ -230,16 +239,23 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     return <div className="assignment-loading">Loading players...</div>;
   }
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    return false;
-  };
-
   return (
-    <div className="game-player-assignment" onMouseDown={(e) => e.preventDefault()}>
-      <form onSubmit={handleFormSubmit} style={{ display: 'contents' }}>
-        {error && <div className="assignment-error">{error}</div>}
+    <div 
+      className="game-player-assignment"
+      onMouseDown={(e) => {
+        // Prevent any default mouse behavior
+        if (e.target !== e.currentTarget) return;
+        e.preventDefault();
+      }}
+      onClick={(e) => {
+        // Prevent any click bubbling that might cause navigation
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+    >
+      {error && <div className="assignment-error">{error}</div>}
 
         {limitReached && requiredPlayers !== null && (
           <div className="assignment-warning">
@@ -284,18 +300,27 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                 {player.age_category && (
                   <span className="player-badge age">{player.age_category}</span>
                 )}
-                <button 
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   className="remove-btn"
-                  onClick={(e) => {
+                  onClick={(e) => handleRemovePlayerClick(e, player.id)}
+                  onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    handleRemovePlayer(e, player.id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleRemovePlayer(player.id);
+                    }
                   }}
                   title="Remove from game"
+                  style={{ userSelect: 'none' }}
                 >
                   ✕
-                </button>
+                </div>
               </div>
             ))}
           </div>
@@ -374,8 +399,9 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                     e.preventDefault();
                     e.stopPropagation();
                     e.nativeEvent.stopImmediatePropagation();
+                    e.stopImmediatePropagation();
                     if (!limitReached) {
-                      handleAddPlayer(e, player.id);
+                      handleAddPlayer(player.id);
                     }
                     return false;
                   }}
@@ -384,7 +410,7 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                       e.preventDefault();
                       e.stopPropagation();
                       if (!limitReached) {
-                        handleAddPlayer(e, player.id);
+                        handleAddPlayer(player.id);
                       }
                     }
                   }}
@@ -392,12 +418,20 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                     e.preventDefault();
                     e.stopPropagation();
                     e.nativeEvent.stopImmediatePropagation();
+                    e.stopImmediatePropagation();
+                  }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                   }}
                   title={limitReached ? "Player limit reached" : "Add to game"}
                   style={{ 
                     opacity: limitReached ? 0.5 : 1,
                     cursor: limitReached ? 'not-allowed' : 'pointer',
                     userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    MozUserSelect: 'none',
+                    msUserSelect: 'none',
                     pointerEvents: limitReached ? 'none' : 'auto'
                   }}
                 >
@@ -408,7 +442,6 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
           </div>
         )}
       </div>
-      </form>
     </div>
   );
 };
