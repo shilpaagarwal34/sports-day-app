@@ -245,10 +245,8 @@ router.post('/:id/players', (req, res) => {
 
 // DELETE remove all players from game
 // IMPORTANT: This route must come BEFORE /:id/players/:playerId to ensure correct matching
-router.delete('/:id/players', (req, res, next) => {
+router.delete('/:id/players', (req, res) => {
   console.log(`[ROUTE MATCH] DELETE /:id/players - gameId: ${req.params.id}, path: ${req.path}, originalUrl: ${req.originalUrl}`);
-  next();
-}, (req, res) => {
   const db = getDatabase();
   if (!db) {
     res.status(503).json({ error: 'Database not initialized' });
