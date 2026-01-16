@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { getGames, Game, getGamePlayers, Player, getPlayers, addPlayerToGame } from '../services/api';
 import './Games.css';
 import GamePlayerAssignment from './GamePlayerAssignment';
