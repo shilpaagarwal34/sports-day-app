@@ -1,9 +1,9 @@
 .game-player-assignment {
-  margin-top: 20px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #dee2e6;
+  margin-top: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  border: none;
 }
 
 .assignment-loading,
@@ -84,8 +84,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 300px;
+  max-height: 400px;
   overflow-y: auto;
+  padding-right: 5px;
 }
 
 .player-item {

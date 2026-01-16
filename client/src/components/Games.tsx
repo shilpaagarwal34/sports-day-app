@@ -3,24 +3,19 @@ import { Link } from 'react-router-dom';
 import { getGames, Game, getGamePlayers, Player } from '../services/api';
 import './Games.css';
 import GamePlayerAssignment from './GamePlayerAssignment';
+import Modal from './Modal';
 
 const Games: React.FC = () => {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedGame, setSelectedGame] = useState<number | null>(null);
+  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [gamePlayers, setGamePlayers] = useState<Player[]>([]);
-  const [showAssignment, setShowAssignment] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     loadGames();
   }, []);
-
-  useEffect(() => {
-    if (selectedGame) {
-      loadGamePlayers(selectedGame);
-    }
-  }, [selectedGame]);
 
   const loadGames = async () => {
     try {
@@ -29,7 +24,7 @@ const Games: React.FC = () => {
       setGames(data);
       setError(null);
     } catch (err) {
-      setError('Failed to load games. Make sure the server is running on port 5000.');
+      setError('Failed to load games. Please check your connection.');
     } finally {
       setLoading(false);
     }
@@ -44,26 +39,29 @@ const Games: React.FC = () => {
     }
   };
 
-  const handleToggleAssignment = (gameId: number) => {
-    if (selectedGame === gameId && showAssignment) {
-      setShowAssignment(false);
-      setSelectedGame(null);
-    } else {
-      setSelectedGame(gameId);
-      setShowAssignment(true);
-    }
+  const handleGameClick = async (game: Game) => {
+    setSelectedGame(game);
+    setIsModalOpen(true);
+    await loadGamePlayers(game.id);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedGame(null);
   };
 
   const handlePlayerAdded = async () => {
     if (selectedGame) {
-      await loadGamePlayers(selectedGame);
+      // Update game players without page refresh
+      await loadGamePlayers(selectedGame.id);
+      // Update games list to refresh player counts
       await loadGames();
     }
   };
 
   if (loading) {
     return (
-      <div className="page-container">
+      <div className="games-page">
         <div className="loading">Loading games...</div>
       </div>
     );
@@ -71,116 +69,112 @@ const Games: React.FC = () => {
 
   if (error) {
     return (
-      <div className="page-container">
+      <div className="games-page">
         <div className="error">{error}</div>
       </div>
     );
   }
 
   return (
-    <div className="page-container">
-      <div className="page-header">
+    <div className="games-page">
+      <div className="games-header">
         <Link to="/" className="back-button">← Back to Home</Link>
-        <h1>Games</h1>
+        <h1>🎮 Games ({games.length})</h1>
       </div>
 
-      <div className="games-list">
+      <div className="games-grid">
         {games.map((game) => (
-          <div key={game.id} className="game-card">
-            <div className="game-header">
-              <h2>{game.name}</h2>
+          <div 
+            key={game.id} 
+            className="game-card"
+            onClick={() => handleGameClick(game)}
+          >
+            <div className="game-card-header">
+              <h3>{game.name}</h3>
               <span className={`status-badge status-${game.status}`}>
                 {game.status}
               </span>
             </div>
 
             {game.date && (
-              <div className="game-info-item">
-                <span className="info-label">📅 Date:</span>
-                <span className="info-value">{new Date(game.date).toLocaleDateString()}</span>
+              <div className="game-card-info">
+                <span className="game-card-icon">📅</span>
+                <span>{new Date(game.date).toLocaleDateString()}</span>
               </div>
             )}
+
+            <div className="game-card-info">
+              <span className="game-card-icon">👥</span>
+              <span>
+                {game.player_count || 0} {game.player_count === 1 ? 'player' : 'players'} assigned
+              </span>
+            </div>
 
             {game.format && (
-              <div className="game-info-item">
-                <span className="info-label">📋 Format:</span>
-                <span className="info-value">{game.format}</span>
-              </div>
-            )}
-
-            {game.team_composition && (
-              <div className="game-info-item">
-                <span className="info-label">👥 Team Composition:</span>
-                <div className="info-value multi-line">{game.team_composition.split('\n').map((line, idx) => (
-                  <div key={idx}>{line}</div>
-                ))}</div>
+              <div className="game-card-info">
+                <span className="game-card-icon">📋</span>
+                <span className="game-card-text-truncate">{game.format}</span>
               </div>
             )}
 
             {game.description && (
-              <p className="game-description">{game.description}</p>
+              <p className="game-card-description">{game.description}</p>
             )}
 
-            {game.game_rules && (
-              <div className="game-rules">
-                <h3>📜 Game Rules:</h3>
-                <div className="rules-content">
-                  {game.game_rules.split('\n').map((rule, idx) => (
-                    <div key={idx} className="rule-item">{rule}</div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {game.player_count !== undefined && (
-              <div className="player-count">
-                <span className="info-label">Players Assigned:</span>
-                <span className="info-value">{game.player_count}</span>
-              </div>
-            )}
-
-            <button 
-              className="assign-players-btn"
-              onClick={() => handleToggleAssignment(game.id)}
-            >
-              {selectedGame === game.id && showAssignment ? '▼ Hide Player Assignment' : '▶ Add Players'}
-            </button>
-
-            {selectedGame === game.id && showAssignment && (
-              <GamePlayerAssignment
-                game={game}
-                assignedPlayers={gamePlayers}
-                onPlayerAdded={handlePlayerAdded}
-              />
-            )}
-
-            <div className="game-teams">
-              {game.team1_name && (
-                <div className="team-info" style={{ borderLeftColor: game.team1_color || '#ccc' }}>
-                  <span className="team-label">Team 1:</span>
-                  <span className="team-name">{game.team1_name}</span>
-                </div>
-              )}
-
-              {game.team2_name && (
-                <div className="team-info" style={{ borderLeftColor: game.team2_color || '#ccc' }}>
-                  <span className="team-label">Team 2:</span>
-                  <span className="team-name">{game.team2_name}</span>
-                </div>
-              )}
+            <div className="game-card-footer">
+              <button className="game-card-btn">
+                Manage Players →
+              </button>
             </div>
-
-            {game.winner_name && (
-              <div className="winner">
-                🏆 Winner: {game.winner_name}
-              </div>
-            )}
           </div>
         ))}
       </div>
 
       {games.length === 0 && (
         <div className="empty-state">No games found. Games will appear here once they are created.</div>
+      )}
+
+      {selectedGame && (
+        <Modal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          title={selectedGame.name}
+        >
+          <div className="modal-game-info">
+            {selectedGame.date && (
+              <div className="modal-info-item">
+                <strong>Date:</strong> {new Date(selectedGame.date).toLocaleDateString()}
+              </div>
+            )}
+            {selectedGame.format && (
+              <div className="modal-info-item">
+                <strong>Format:</strong> {selectedGame.format}
+              </div>
+            )}
+            {selectedGame.team_composition && (
+              <div className="modal-info-item">
+                <strong>Team Composition:</strong>
+                <div className="modal-multiline">{selectedGame.team_composition}</div>
+              </div>
+            )}
+            {selectedGame.game_rules && (
+              <div className="modal-info-item">
+                <strong>Game Rules:</strong>
+                <div className="modal-rules">
+                  {selectedGame.game_rules.split('\n').map((rule, idx) => (
+                    <div key={idx} className="modal-rule-item">{rule}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <GamePlayerAssignment
+            game={selectedGame}
+            assignedPlayers={gamePlayers}
+            onPlayerAdded={handlePlayerAdded}
+          />
+        </Modal>
       )}
     </div>
   );
