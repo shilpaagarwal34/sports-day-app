@@ -1,0 +1,24 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Home from './components/Home';
+import Dashboard from './components/Dashboard';
+import Games from './components/Games';
+import Players from './components/Players';
+import './App.css';
+
+function App() {
+  return (
+    <div className="App">
+      <Router>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/games" element={<Games />} />
+          <Route path="/players" element={<Players />} />
+        </Routes>
+      </Router>
+    </div>
+  );
+}
+
+export default App;
