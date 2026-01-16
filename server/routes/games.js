@@ -244,9 +244,57 @@ router.post('/:id/players', (req, res) => {
 });
 
 // DELETE remove all players from game
-// IMPORTANT: This route must come BEFORE /:id/players/:playerId to ensure correct matching
+// Use /all endpoint to avoid route conflict with /:id/players/:playerId
+router.delete('/:id/players/all', (req, res) => {
+  console.log(`[ROUTE MATCH] DELETE /:id/players/all - gameId: ${req.params.id}, path: ${req.path}, originalUrl: ${req.originalUrl}`);
+  const db = getDatabase();
+  if (!db) {
+    res.status(503).json({ error: 'Database not initialized' });
+    return;
+  }
+  
+  const gameId = parseInt(req.params.id, 10);
+  if (isNaN(gameId)) {
+    res.status(400).json({ error: 'Invalid game ID' });
+    return;
+  }
+  
+  console.log(`[DELETE /:id/players/all] Attempting to remove all players from game ${gameId}`);
+  
+  // Use the database adapter's run method which handles both SQLite and PostgreSQL
+  // Store changes in a variable that can be accessed regardless of callback context
+  let changesCount = 0;
+  
+  db.run('DELETE FROM game_players WHERE game_id = ?', 
+    [gameId], 
+    function(err) {
+      if (err) {
+        console.error('[DELETE /:id/players/all] Error removing all players from game:', err);
+        res.status(500).json({ error: err.message || 'Failed to remove all players from game' });
+        return;
+      }
+      // For PostgreSQL, changes is set via callback.call, for SQLite it's this.changes
+      // Try to get changes from this context (works for both SQLite and PostgreSQL adapter)
+      if (this && typeof this.changes === 'number') {
+        changesCount = this.changes;
+      } else {
+        changesCount = 0;
+      }
+      console.log(`[DELETE /:id/players/all] Successfully removed ${changesCount} player(s) from game ${gameId}`);
+      res.json({ message: `All players removed from game successfully. ${changesCount} player(s) removed.` });
+    });
+});
+
+// DELETE remove all players from game (legacy route - kept for backward compatibility)
+// This route is less specific and might conflict, so we use /all above
 router.delete('/:id/players', (req, res) => {
-  console.log(`[ROUTE MATCH] DELETE /:id/players - gameId: ${req.params.id}, path: ${req.path}, originalUrl: ${req.originalUrl}`);
+  // Check if this is actually a request to remove all players (no playerId in query)
+  // If there's a playerId parameter, this shouldn't match
+  if (req.params.playerId || req.query.playerId) {
+    return res.status(404).json({ error: 'Route not found' });
+  }
+  
+  console.log(`[ROUTE MATCH] DELETE /:id/players (legacy) - gameId: ${req.params.id}`);
   const db = getDatabase();
   if (!db) {
     res.status(503).json({ error: 'Database not initialized' });
@@ -261,8 +309,6 @@ router.delete('/:id/players', (req, res) => {
   
   console.log(`[DELETE /:id/players] Attempting to remove all players from game ${gameId}`);
   
-  // Use the database adapter's run method which handles both SQLite and PostgreSQL
-  // Store changes in a variable that can be accessed regardless of callback context
   let changesCount = 0;
   
   db.run('DELETE FROM game_players WHERE game_id = ?', 
@@ -273,8 +319,6 @@ router.delete('/:id/players', (req, res) => {
         res.status(500).json({ error: err.message || 'Failed to remove all players from game' });
         return;
       }
-      // For PostgreSQL, changes is set via callback.call, for SQLite it's this.changes
-      // Try to get changes from this context (works for both SQLite and PostgreSQL adapter)
       if (this && typeof this.changes === 'number') {
         changesCount = this.changes;
       } else {

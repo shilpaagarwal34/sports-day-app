@@ -139,7 +139,8 @@ export const removePlayerFromGame = async (gameId: number, playerId: number): Pr
 
 export const removeAllPlayersFromGame = async (gameId: number): Promise<any> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/games/${gameId}/players`, {
+    // Use /all endpoint to avoid route conflicts
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/players/all`, {
       method: 'DELETE',
     });
     
