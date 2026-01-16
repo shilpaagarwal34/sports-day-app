@@ -194,6 +194,14 @@
   transition: all 0.2s;
   min-width: 32px;
   height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .add-btn {
@@ -205,7 +213,8 @@
   background: #218838;
 }
 
-.add-btn:disabled {
+.add-btn:disabled,
+.add-btn[style*="opacity: 0.5"] {
   background: #6c757d;
   cursor: not-allowed;
   opacity: 0.6;

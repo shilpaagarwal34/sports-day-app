@@ -71,24 +71,27 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     return filtered;
   };
 
-  const handleAddPlayer = async (e: React.MouseEvent, playerId: number) => {
+  const handleAddPlayer = async (e: React.MouseEvent | React.KeyboardEvent, playerId: number) => {
     e.preventDefault();
     e.stopPropagation();
+    e.nativeEvent.stopImmediatePropagation();
     
     // Check if player limit is reached
     if (isPlayerLimitReached()) {
       const required = getRequiredPlayers();
       setError(`Cannot add more players. This game requires ${required} players and all slots are filled.`);
       setTimeout(() => setError(null), 5000);
-      return;
+      return false;
     }
 
     try {
       await addPlayerToGame(game.id, playerId);
       onPlayerAdded();
+      return false;
     } catch (err: any) {
       setError(err.message || 'Failed to add player');
       setTimeout(() => setError(null), 3000);
+      return false;
     }
   };
 
@@ -224,17 +227,24 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     return <div className="assignment-loading">Loading players...</div>;
   }
 
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  };
+
   return (
-    <div className="game-player-assignment">
-      {error && <div className="assignment-error">{error}</div>}
+    <div className="game-player-assignment" onMouseDown={(e) => e.preventDefault()}>
+      <form onSubmit={handleFormSubmit} style={{ display: 'contents' }}>
+        {error && <div className="assignment-error">{error}</div>}
 
-      {limitReached && requiredPlayers !== null && (
-        <div className="assignment-warning">
-          ⚠️ Player limit reached: {assignedPlayers.length}/{requiredPlayers} players assigned. Cannot add more players.
-        </div>
-      )}
+        {limitReached && requiredPlayers !== null && (
+          <div className="assignment-warning">
+            ⚠️ Player limit reached: {assignedPlayers.length}/{requiredPlayers} players assigned. Cannot add more players.
+          </div>
+        )}
 
-      <div className="assignment-section">
+        <div className="assignment-section">
         <div className="assignment-section-header">
           <h4>Assigned Players ({assignedPlayers.length}{requiredPlayers !== null ? `/${requiredPlayers}` : ''})</h4>
           {assignedPlayers.length > 0 && (
@@ -331,7 +341,16 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
         ) : (
           <div className="players-list available">
             {availablePlayers.map(player => (
-              <div key={player.id} className="player-item available">
+              <div 
+                key={player.id} 
+                className="player-item available"
+                onMouseDown={(e) => {
+                  // Prevent any default behavior on the container
+                  if (e.target === e.currentTarget) {
+                    e.preventDefault();
+                  }
+                }}
+              >
                 <span className="player-name">{player.name}</span>
                 {player.team_name && (
                   <span className="player-team" style={{ color: player.team_color }}>
@@ -344,28 +363,49 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                 {player.age_category && (
                   <span className="player-badge age">{player.age_category}</span>
                 )}
-                <button 
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={limitReached ? -1 : 0}
                   className="add-btn"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    handleAddPlayer(e, player.id);
+                    e.nativeEvent.stopImmediatePropagation();
+                    if (!limitReached) {
+                      handleAddPlayer(e, player.id);
+                    }
+                    return false;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!limitReached) {
+                        handleAddPlayer(e, player.id);
+                      }
+                    }
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
                   }}
                   title={limitReached ? "Player limit reached" : "Add to game"}
-                  disabled={limitReached}
                   style={{ 
                     opacity: limitReached ? 0.5 : 1,
-                    cursor: limitReached ? 'not-allowed' : 'pointer'
+                    cursor: limitReached ? 'not-allowed' : 'pointer',
+                    userSelect: 'none',
+                    pointerEvents: limitReached ? 'none' : 'auto'
                   }}
                 >
                   +
-                </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+      </form>
     </div>
   );
 };
