@@ -138,26 +138,35 @@ export const removePlayerFromGame = async (gameId: number, playerId: number): Pr
 };
 
 export const removeAllPlayersFromGame = async (gameId: number): Promise<any> => {
+  const url = `${API_BASE_URL}/games/${gameId}/players/all`;
+  console.log(`[API] DELETE ${url}`);
+  
   try {
     // Use /all endpoint to avoid route conflicts
-    const response = await fetch(`${API_BASE_URL}/games/${gameId}/players/all`, {
+    const response = await fetch(url, {
       method: 'DELETE',
     });
+    
+    console.log(`[API] Response status: ${response.status} for DELETE ${url}`);
     
     if (!response.ok) {
       let errorMessage = `Failed to remove all players from game (${response.status})`;
       
       try {
         const errorData = await response.json();
+        console.log('[API] Error data:', errorData);
         errorMessage = errorData.error || errorMessage;
       } catch (jsonError) {
+        console.error('[API] Failed to parse error JSON:', jsonError);
         // If response is not JSON, try to get text
         try {
           const text = await response.text();
+          console.log('[API] Error text:', text);
           if (text) {
             errorMessage = text;
           }
         } catch (textError) {
+          console.error('[API] Failed to get error text:', textError);
           // Keep the default error message
         }
       }
@@ -165,8 +174,11 @@ export const removeAllPlayersFromGame = async (gameId: number): Promise<any> => 
       throw new Error(errorMessage);
     }
     
-    return response.json();
+    const result = await response.json();
+    console.log('[API] Success result:', result);
+    return result;
   } catch (err: any) {
+    console.error('[API] Network/Request error:', err);
     // Re-throw with better error message
     if (err.message) {
       throw err;

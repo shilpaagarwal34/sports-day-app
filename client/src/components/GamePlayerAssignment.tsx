@@ -193,6 +193,7 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
   const handleResetAllPlayers = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    e.nativeEvent.stopImmediatePropagation();
     
     if (assignedPlayers.length === 0) {
       setError('No players assigned to remove');
@@ -207,11 +208,17 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
     try {
       setLoading(true);
       setError(null);
+      console.log(`[FRONTEND] Attempting to reset all players for game ${game.id}`);
       const result = await removeAllPlayersFromGame(game.id);
-      console.log('Reset all players result:', result);
+      console.log('[FRONTEND] Reset all players result:', result);
+      
+      // Clear any selected players
+      setSelectedPlayers(new Set());
+      
+      // Refresh the player list
       onPlayerAdded();
     } catch (err: any) {
-      console.error('Error removing all players:', err);
+      console.error('[FRONTEND] Error removing all players:', err);
       // Extract error message more reliably
       let errorMessage = 'Failed to remove all players';
       if (err && err.message) {
@@ -427,12 +434,16 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                   key={player.id} 
                   className={`player-item available ${isSelected ? 'selected' : ''}`}
                   onClick={(e) => {
-                    if (canSelect && e.target !== e.currentTarget) {
-                      // Only toggle if clicking on the checkbox or the item itself, not on badges
-                      const target = e.target as HTMLElement;
-                      if (target.tagName !== 'SPAN' || target.classList.contains('player-name') || target.classList.contains('player-team')) {
-                        handleTogglePlayerSelection(player.id);
-                      }
+                    // Don't toggle if clicking on checkbox (it handles its own onChange)
+                    const target = e.target as HTMLElement;
+                    if ((target instanceof HTMLInputElement && target.type === 'checkbox') || target.closest('.player-checkbox') || target.closest('input[type="checkbox"]')) {
+                      return;
+                    }
+                    // Only toggle if clicking on the player name or team, not on badges
+                    if (canSelect && (target.classList.contains('player-name') || target.classList.contains('player-team'))) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleTogglePlayerSelection(player.id);
                     }
                   }}
                 >
@@ -440,18 +451,13 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                     type="checkbox"
                     checked={isSelected}
                     onChange={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      e.nativeEvent.stopImmediatePropagation();
+                      // Checkbox onChange handles the toggle
                       if (canSelect) {
                         handleTogglePlayerSelection(player.id);
                       }
                     }}
                     onClick={(e) => {
-                      e.stopPropagation();
-                      e.nativeEvent.stopImmediatePropagation();
-                    }}
-                    onMouseDown={(e) => {
+                      // Stop propagation to prevent parent onClick from firing
                       e.stopPropagation();
                     }}
                     disabled={!canSelect}
