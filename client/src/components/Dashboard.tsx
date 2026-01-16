@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { getDashboard } from '../services/api';
 import './Dashboard.css';
 
 interface GameStat {
@@ -25,8 +26,6 @@ interface DashboardData {
   players: PlayerStat[];
 }
 
-const API_BASE_URL = 'http://localhost:5000/api';
-
 const Dashboard: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,13 +38,11 @@ const Dashboard: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/dashboard`);
-      if (!response.ok) throw new Error('Failed to load dashboard data');
-      const dashboardData = await response.json();
+      const dashboardData = await getDashboard();
       setData(dashboardData);
       setError(null);
     } catch (err) {
-      setError('Failed to load dashboard data. Make sure the server is running on port 5000.');
+      setError('Failed to load dashboard data. Please check your backend connection.');
     } finally {
       setLoading(false);
     }
