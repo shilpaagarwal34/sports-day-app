@@ -141,7 +141,10 @@ export const removeAllPlayersFromGame = async (gameId: number): Promise<any> => 
   const response = await fetch(`${API_BASE_URL}/games/${gameId}/players`, {
     method: 'DELETE',
   });
-  if (!response.ok) throw new Error('Failed to remove all players from game');
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.error || `Failed to remove all players from game (${response.status})`);
+  }
   return response.json();
 };
 

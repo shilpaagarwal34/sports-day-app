@@ -250,14 +250,21 @@ router.delete('/:id/players', (req, res) => {
     res.status(503).json({ error: 'Database not initialized' });
     return;
   }
+  
+  const gameId = req.params.id;
+  console.log(`Attempting to remove all players from game ${gameId}`);
+  
   db.run('DELETE FROM game_players WHERE game_id = ?', 
-    [req.params.id], 
+    [gameId], 
     function(err) {
       if (err) {
-        res.status(500).json({ error: err.message });
+        console.error('Error removing all players from game:', err);
+        res.status(500).json({ error: err.message || 'Failed to remove all players from game' });
         return;
       }
-      res.json({ message: `All players removed from game successfully. ${this.changes} player(s) removed.` });
+      const changes = this.changes || 0;
+      console.log(`Successfully removed ${changes} player(s) from game ${gameId}`);
+      res.json({ message: `All players removed from game successfully. ${changes} player(s) removed.` });
     });
 });
 

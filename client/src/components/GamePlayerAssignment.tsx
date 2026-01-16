@@ -184,12 +184,15 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
 
     try {
       setLoading(true);
-      await removeAllPlayersFromGame(game.id);
-      onPlayerAdded();
       setError(null);
+      const result = await removeAllPlayersFromGame(game.id);
+      console.log('Reset all players result:', result);
+      onPlayerAdded();
     } catch (err: any) {
-      setError(err.message || 'Failed to remove all players');
-      setTimeout(() => setError(null), 3000);
+      console.error('Error removing all players:', err);
+      const errorMessage = err.message || 'Failed to remove all players';
+      setError(errorMessage);
+      setTimeout(() => setError(null), 5000);
     } finally {
       setLoading(false);
     }
