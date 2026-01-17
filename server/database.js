@@ -196,10 +196,31 @@ function initSQLite() {
 
 // Initialize database
 async function initDatabase() {
+  console.log('[DATABASE] Starting database initialization...');
+  console.log('[DATABASE] usePostgreSQL:', usePostgreSQL);
+  console.log('[DATABASE] DATABASE_URL:', DATABASE_URL ? DATABASE_URL.substring(0, 20) + '...' : 'not set');
+  
   if (usePostgreSQL) {
-    return await initPostgreSQL();
+    try {
+      console.log('[DATABASE] Attempting PostgreSQL connection...');
+      return await initPostgreSQL();
+    } catch (err) {
+      console.error('[DATABASE] ❌ PostgreSQL initialization failed');
+      console.error('[DATABASE] Error:', err.message);
+      console.error('[DATABASE] Error code:', err.code);
+      // Don't fall back automatically - let the error propagate
+      // This helps identify configuration issues
+      throw err;
+    }
   } else {
-    return await initSQLite();
+    console.log('[DATABASE] Using SQLite (no DATABASE_URL set)');
+    try {
+      return await initSQLite();
+    } catch (err) {
+      console.error('[DATABASE] ❌ SQLite initialization failed');
+      console.error('[DATABASE] Error:', err.message);
+      throw err;
+    }
   }
 }
 
@@ -569,12 +590,17 @@ function getDatabase() {
 // Initialize database and create tables
 async function initialize() {
   try {
+    console.log('[DATABASE] initialize() called - starting full initialization...');
     await initDatabase();
+    console.log('[DATABASE] Database connection established, creating tables...');
     await createTables();
-    console.log('Database initialized successfully');
+    console.log('[DATABASE] ✅ Database initialized successfully');
+    console.log('[DATABASE] Database object:', db ? 'present' : 'null');
     return db;
   } catch (err) {
-    console.error('Database initialization error:', err);
+    console.error('[DATABASE] ❌ Database initialization error in initialize():', err);
+    console.error('[DATABASE] Error message:', err.message);
+    console.error('[DATABASE] Error stack:', err.stack);
     throw err;
   }
 }
