@@ -22,13 +22,25 @@ app.use((req, res, next) => {
   next();
 });
 
-initDatabase().then(() => {
-  return seedDatabase();
-}).then(() => {
-  console.log('Database initialized and seeded successfully');
-}).catch((err) => {
-  console.error('Database initialization error:', err);
-});
+// Initialize database asynchronously - don't block server start
+(async () => {
+  try {
+    console.log('[SERVER] Starting database initialization...');
+    console.log('[SERVER] DATABASE_URL present:', !!process.env.DATABASE_URL);
+    await initDatabase();
+    console.log('[SERVER] Database initialized, starting seeding...');
+    await seedDatabase();
+    console.log('[SERVER] ✅ Database initialized and seeded successfully');
+  } catch (err) {
+    console.error('[SERVER] ❌ Database initialization error:', err);
+    console.error('[SERVER] Error details:', err.message);
+    console.error('[SERVER] Stack:', err.stack);
+    // Don't exit - allow server to start even if database fails
+    // Routes will return 503 if database is not initialized
+    console.warn('[SERVER] ⚠️ Server will continue to start, but database-dependent routes may fail');
+    console.warn('[SERVER] ⚠️ Make sure DATABASE_URL is set in Railway environment variables if using PostgreSQL');
+  }
+})();
 
 // Root route - can serve HTML or JSON based on Accept header
 app.get('/', (req, res) => {
