@@ -136,21 +136,51 @@ class DatabaseAdapter {
 // Initialize PostgreSQL
 async function initPostgreSQL() {
   try {
+    // Validate DATABASE_URL format
+    if (!DATABASE_URL || typeof DATABASE_URL !== 'string') {
+      throw new Error('DATABASE_URL is not a valid string');
+    }
+    
+    // Remove any whitespace/newlines that might cause issues
+    const cleanUrl = DATABASE_URL.trim();
+    
+    // Basic validation - should start with postgresql:// or postgres://
+    if (!cleanUrl.startsWith('postgresql://') && !cleanUrl.startsWith('postgres://')) {
+      console.error('[DATABASE] Invalid DATABASE_URL format. Should start with postgresql:// or postgres://');
+      console.error('[DATABASE] URL starts with:', cleanUrl.substring(0, 20));
+      throw new Error('DATABASE_URL must start with postgresql:// or postgres://');
+    }
+    
+    // Check if URL is valid (basic check)
+    try {
+      new URL(cleanUrl); // This will throw if URL is invalid
+    } catch (urlError) {
+      console.error('[DATABASE] Invalid URL format:', urlError.message);
+      console.error('[DATABASE] URL length:', cleanUrl.length);
+      console.error('[DATABASE] URL preview (first 50 chars):', cleanUrl.substring(0, 50));
+      throw new Error(`Invalid DATABASE_URL format: ${urlError.message}`);
+    }
+    
+    console.log('[DATABASE] DATABASE_URL format validated successfully');
+    console.log('[DATABASE] URL preview:', cleanUrl.substring(0, 30) + '...' + cleanUrl.substring(cleanUrl.length - 20));
+    
     pgPool = new Pool({
-      connectionString: DATABASE_URL,
-      ssl: DATABASE_URL.includes('supabase') ? { rejectUnauthorized: false } : false
+      connectionString: cleanUrl,
+      ssl: cleanUrl.includes('supabase') ? { rejectUnauthorized: false } : false
     });
 
     // Test connection
+    console.log('[DATABASE] Testing PostgreSQL connection...');
     const client = await pgPool.connect();
     await client.query('SELECT NOW()');
     client.release();
 
-    console.log('Connected to PostgreSQL database');
+    console.log('[DATABASE] ✅ Connected to PostgreSQL database');
     db = new DatabaseAdapter(pgPool, true);
     return db;
   } catch (err) {
-    console.error('PostgreSQL connection error:', err);
+    console.error('[DATABASE] ❌ PostgreSQL connection error:', err.message);
+    console.error('[DATABASE] Error code:', err.code);
     throw err;
   }
 }
