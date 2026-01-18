@@ -470,12 +470,20 @@ function seedDatabase() {
               // Check if users are seeded
               db.get('SELECT COUNT(*) as count FROM users', [], (err, userRow) => {
                 if (err) {
-                  reject(err);
+                  console.error('[SEED] Error checking users table:', err.message);
+                  // If users table doesn't exist or has error, try to seed anyway
+                  console.log('[SEED] Attempting to seed users despite error...');
+                  seedUsers().then(resolve).catch((seedErr) => {
+                    console.error('[SEED] Failed to seed users:', seedErr.message);
+                    reject(seedErr);
+                  });
                   return;
                 }
                 if (userRow.count === 0) {
+                  console.log('[SEED] No users found, seeding users...');
                   seedUsers().then(resolve).catch(reject);
                 } else {
+                  console.log(`[SEED] Users already exist (${userRow.count} users)`);
                   resolve();
                 }
               });
