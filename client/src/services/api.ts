@@ -1,7 +1,16 @@
+// Get API base URL from environment variable
+// In production (Vercel), this should be set to Railway backend URL
+// e.g., https://web-production-17317.up.railway.app/api
 const API_BASE_URL = process.env.REACT_APP_API_URL || 
   (process.env.NODE_ENV === 'production' 
     ? '/api' 
     : 'http://localhost:5000/api');
+
+// Log the API URL for debugging (only in development)
+if (process.env.NODE_ENV === 'development') {
+  console.log('[API] API_BASE_URL:', API_BASE_URL);
+  console.log('[API] REACT_APP_API_URL env var:', process.env.REACT_APP_API_URL || 'NOT SET');
+}
 
 export interface Team {
   id: number;
@@ -248,7 +257,8 @@ export const login = async (username: string, password: string): Promise<User> =
   } catch (error: any) {
     console.error('[API] Login exception:', error);
     if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-      throw new Error('Cannot connect to server. Please make sure the backend server is running on port 5000.');
+      const apiUrl = API_BASE_URL || 'not configured';
+      throw new Error(`Cannot connect to server at ${apiUrl}. Please check REACT_APP_API_URL environment variable is set correctly.`);
     }
     throw error;
   }
