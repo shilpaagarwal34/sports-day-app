@@ -97,9 +97,15 @@ router.get('/', (req, res) => {
         };
       });
 
+      // Ensure games_count is returned as a number (not string)
+      const processedPlayerStats = playerStats.map(player => ({
+        ...player,
+        games_count: typeof player.games_count === 'string' ? parseInt(player.games_count, 10) : (player.games_count || 0)
+      }));
+
       res.json({
         games: processedGameStats,
-        players: playerStats
+        players: processedPlayerStats
       });
     });
   });

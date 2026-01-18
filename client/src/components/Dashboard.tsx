@@ -78,11 +78,17 @@ const Dashboard: React.FC = () => {
 
   const totalGames = data.games.length;
   const totalPlayers = data.players.length;
-  const playersInGames = data.players.filter(p => p.games_count > 0).length;
+  // Ensure games_count is a number (parse from string if needed)
+  const playersWithNumericCounts = data.players.map(p => ({
+    ...p,
+    games_count: typeof p.games_count === 'string' ? parseInt(p.games_count, 10) : (p.games_count || 0)
+  }));
+  const playersInGames = playersWithNumericCounts.filter(p => p.games_count > 0).length;
   // Calculate average games per player - only for players who are in at least one game
-  const playersWithGames = data.players.filter(p => p.games_count > 0);
+  const playersWithGames = playersWithNumericCounts.filter(p => p.games_count > 0);
+  const totalGamesCount = playersWithGames.reduce((sum, p) => sum + p.games_count, 0);
   const avgGamesPerPlayer = playersWithGames.length > 0 
-    ? (playersWithGames.reduce((sum, p) => sum + p.games_count, 0) / playersWithGames.length).toFixed(1)
+    ? (totalGamesCount / playersWithGames.length).toFixed(1)
     : '0.0';
 
   return (
@@ -177,7 +183,7 @@ const Dashboard: React.FC = () => {
       <div className="dashboard-section">
         <h2>👤 Player Game Participation</h2>
         <div className="players-stats">
-          {data.players.map((player) => (
+          {playersWithNumericCounts.map((player) => (
             <div key={player.id} className="player-stat-card">
               <div className="player-stat-header">
                 <h3>{player.name}</h3>
