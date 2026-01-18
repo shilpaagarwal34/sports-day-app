@@ -79,9 +79,11 @@ const Dashboard: React.FC = () => {
   const totalGames = data.games.length;
   const totalPlayers = data.players.length;
   const playersInGames = data.players.filter(p => p.games_count > 0).length;
-  const avgGamesPerPlayer = data.players.length > 0 
-    ? (data.players.reduce((sum, p) => sum + p.games_count, 0) / data.players.length).toFixed(1)
-    : 0;
+  // Calculate average games per player - only for players who are in at least one game
+  const playersWithGames = data.players.filter(p => p.games_count > 0);
+  const avgGamesPerPlayer = playersWithGames.length > 0 
+    ? (playersWithGames.reduce((sum, p) => sum + p.games_count, 0) / playersWithGames.length).toFixed(1)
+    : '0.0';
 
   return (
       <div className="page-container">
