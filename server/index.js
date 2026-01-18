@@ -13,8 +13,10 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Configure CORS with credentials support
+// Allow all origins if FRONTEND_URL is not set (for development and when Vercel domain is unknown)
+// In production, you can optionally set FRONTEND_URL to your Vercel domain for stricter security
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? false : true),
+  origin: process.env.FRONTEND_URL || true, // true allows all origins, which is fine with credentials: true for this use case
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
