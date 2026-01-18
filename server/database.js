@@ -19,6 +19,11 @@ class DatabaseAdapter {
 
   // Execute query and return all rows
   all(query, params, callback) {
+    // Safety check: ensure callback is a function
+    if (typeof callback !== 'function') {
+      throw new Error('db.all() requires a callback function as the third parameter');
+    }
+    
     if (this.isPostgres) {
       // Convert SQLite ? placeholders to PostgreSQL $1, $2, etc.
       const pgQuery = this.convertQuery(query, params);
@@ -33,6 +38,11 @@ class DatabaseAdapter {
 
   // Execute query and return single row
   get(query, params, callback) {
+    // Safety check: ensure callback is a function
+    if (typeof callback !== 'function') {
+      throw new Error('db.get() requires a callback function as the third parameter');
+    }
+    
     if (this.isPostgres) {
       const pgQuery = this.convertQuery(query, params);
       this.db.query(pgQuery.text, pgQuery.values, (err, result) => {

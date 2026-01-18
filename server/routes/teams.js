@@ -9,7 +9,7 @@ router.get('/', (req, res) => {
     res.status(503).json({ error: 'Database not initialized' });
     return;
   }
-  db.all('SELECT * FROM teams ORDER BY name', (err, rows) => {
+  db.all('SELECT * FROM teams ORDER BY name', [], (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
       return;
