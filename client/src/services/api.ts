@@ -212,7 +212,61 @@ export interface DashboardData {
 }
 
 export const getDashboard = async (): Promise<DashboardData> => {
-  const response = await fetch(`${API_BASE_URL}/dashboard`);
+  const response = await fetch(`${API_BASE_URL}/dashboard`, {
+    credentials: 'include'
+  });
   if (!response.ok) throw new Error('Failed to fetch dashboard data');
+  return response.json();
+};
+
+// Auth API
+export interface User {
+  id: number;
+  username: string;
+  role: 'admin' | 'readonly';
+}
+
+export const login = async (username: string, password: string): Promise<User> => {
+  console.log('[API] Login attempt for:', username);
+  console.log('[API] API_BASE_URL:', API_BASE_URL);
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ username, password }),
+    });
+    console.log('[API] Login response status:', response.status);
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('[API] Login error response:', error);
+      throw new Error(error.error || 'Failed to login');
+    }
+    const userData = await response.json();
+    console.log('[API] Login successful:', userData);
+    return userData;
+  } catch (error: any) {
+    console.error('[API] Login exception:', error);
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      throw new Error('Cannot connect to server. Please make sure the backend server is running on port 5000.');
+    }
+    throw error;
+  }
+};
+
+export const logout = async (): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error('Failed to logout');
+};
+
+export const getSession = async (): Promise<User | null> => {
+  const response = await fetch(`${API_BASE_URL}/auth/session`, {
+    credentials: 'include',
+  });
+  if (response.status === 401) return null;
+  if (!response.ok) throw new Error('Failed to get session');
   return response.json();
 };

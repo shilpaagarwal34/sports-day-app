@@ -403,7 +403,34 @@ async function createTables() {
                 reject(err);
                 return;
               }
-              resolve();
+
+              // Users table
+              const usersTable = usePostgreSQL ? `
+                CREATE TABLE IF NOT EXISTS users (
+                  id SERIAL PRIMARY KEY,
+                  username TEXT NOT NULL UNIQUE,
+                  password TEXT NOT NULL,
+                  role TEXT NOT NULL CHECK(role IN ('admin', 'readonly')),
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+              ` : `
+                CREATE TABLE IF NOT EXISTS users (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  username TEXT NOT NULL UNIQUE,
+                  password TEXT NOT NULL,
+                  role TEXT NOT NULL CHECK(role IN ('admin', 'readonly')),
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+              `;
+
+              db.run(usersTable, [], (err) => {
+                if (err) {
+                  console.error('Error creating users table:', err);
+                  reject(err);
+                  return;
+                }
+                resolve();
+              });
             });
           });
         });
@@ -436,9 +463,22 @@ function seedDatabase() {
               return;
             }
             if (playerRow.count === 0) {
-              seedPlayers().then(resolve).catch(reject);
+              seedUsers().then(() => {
+                seedPlayers().then(resolve).catch(reject);
+              }).catch(reject);
             } else {
-              resolve();
+              // Check if users are seeded
+              db.get('SELECT COUNT(*) as count FROM users', [], (err, userRow) => {
+                if (err) {
+                  reject(err);
+                  return;
+                }
+                if (userRow.count === 0) {
+                  seedUsers().then(resolve).catch(reject);
+                } else {
+                  resolve();
+                }
+              });
             }
           });
           return;
@@ -570,9 +610,48 @@ function seedDatabase() {
               return;
             }
             console.log('Games seeded');
-            seedPlayers().then(resolve).catch(reject);
+            seedUsers().then(() => {
+              seedPlayers().then(resolve).catch(reject);
+            }).catch(reject);
           });
         });
+      });
+    });
+  });
+}
+
+function seedUsers() {
+  return new Promise((resolve, reject) => {
+    db.get('SELECT COUNT(*) as count FROM users', [], (err, row) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      if (row.count > 0) {
+        console.log('Users already seeded');
+        resolve();
+        return;
+      }
+
+      const bcrypt = require('bcryptjs');
+      const users = [
+        { username: 'admin', password: 'admin123', role: 'admin' },
+        { username: 'readonly', password: 'readonly123', role: 'readonly' }
+      ];
+
+      const stmt = db.prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)');
+      users.forEach(user => {
+        // Hash password using bcrypt
+        const hashedPassword = bcrypt.hashSync(user.password, 10);
+        stmt.run(user.username, hashedPassword, user.role, () => {});
+      });
+      stmt.finalize((err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        console.log('Sample users seeded (admin/admin123, readonly/readonly123)');
+        resolve();
       });
     });
   });

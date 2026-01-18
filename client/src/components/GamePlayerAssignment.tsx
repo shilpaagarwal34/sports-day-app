@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getPlayers, Player, addPlayerToGame, removePlayerFromGame, removeAllPlayersFromGame, Game } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import './GamePlayerAssignment.css';
 
 interface GamePlayerAssignmentProps {
@@ -9,6 +10,7 @@ interface GamePlayerAssignmentProps {
 }
 
 const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assignedPlayers, onPlayerAdded }) => {
+  const { canEdit } = useAuth();
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'Male' | 'Female' | 'Adult' | 'Kid' | '50+' | '65+'>('all');
@@ -294,7 +296,7 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
         <div className="assignment-section">
         <div className="assignment-section-header">
           <h4>Assigned Players ({assignedPlayers.length}{requiredPlayers !== null ? `/${requiredPlayers}` : ''})</h4>
-          {assignedPlayers.length > 0 && (
+          {assignedPlayers.length > 0 && canEdit && (
             <button
               type="button"
               className="remove-all-btn"
@@ -329,27 +331,29 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                 {player.age_category && (
                   <span className="player-badge age">{player.age_category}</span>
                 )}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  className="remove-btn"
-                  onClick={(e) => handleRemovePlayerClick(e, player.id)}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                {canEdit && (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="remove-btn"
+                    onClick={(e) => handleRemovePlayerClick(e, player.id)}
+                    onMouseDown={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      handleRemovePlayer(player.id);
-                    }
-                  }}
-                  title="Remove from game"
-                  style={{ userSelect: 'none' }}
-                >
-                  ✕
-                </div>
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleRemovePlayer(player.id);
+                      }
+                    }}
+                    title="Remove from game"
+                    style={{ userSelect: 'none' }}
+                  >
+                    ✕
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -359,7 +363,7 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
       <div className="assignment-section">
         <div className="assignment-section-header">
           <h4>Available Players ({availablePlayers.length})</h4>
-          {availablePlayers.length > 0 && !limitReached && (
+          {availablePlayers.length > 0 && !limitReached && canEdit && (
             <div className="selection-controls">
               <button
                 type="button"
@@ -386,7 +390,7 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                   Deselect All ({selectedPlayers.size})
                 </button>
               )}
-              {selectedPlayers.size > 0 && (
+              {selectedPlayers.size > 0 && canEdit && (
                 <button
                   type="button"
                   className="add-selected-btn"
@@ -453,7 +457,7 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                     checked={isSelected}
                     onChange={(e) => {
                       // Checkbox onChange handles the toggle
-                      if (canSelect) {
+                      if (canSelect && canEdit) {
                         handleTogglePlayerSelection(player.id);
                       }
                     }}
@@ -461,7 +465,7 @@ const GamePlayerAssignment: React.FC<GamePlayerAssignmentProps> = ({ game, assig
                       // Stop propagation to prevent parent onClick from firing
                       e.stopPropagation();
                     }}
-                    disabled={!canSelect}
+                    disabled={!canSelect || !canEdit}
                     className="player-checkbox"
                   />
                   <span className="player-name">{player.name}</span>

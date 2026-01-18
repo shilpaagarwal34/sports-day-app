@@ -1,12 +1,20 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import './Navigation.css';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout, isAdmin } = useAuth();
 
   const isActive = (path: string) => {
     return location.pathname === path;
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
   };
 
   return (
@@ -37,6 +45,14 @@ const Navigation: React.FC = () => {
             <span className="nav-icon">⚽</span>
             <span className="nav-text">Games</span>
           </Link>
+        </div>
+        <div className="nav-user">
+          <span className="nav-username">
+            {user?.username} ({isAdmin ? 'Admin' : 'Read-only'})
+          </span>
+          <button onClick={handleLogout} className="nav-logout">
+            Logout
+          </button>
         </div>
       </div>
     </nav>
