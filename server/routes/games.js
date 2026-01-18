@@ -20,7 +20,7 @@ router.get('/', (req, res) => {
     LEFT JOIN teams t2 ON g.team2_id = t2.id
     LEFT JOIN teams w ON g.winner_id = w.id
     ORDER BY COALESCE(g.date, g.scheduled_time, g.created_at) DESC, g.created_at DESC
-  `, (err, rows) => {
+  `, [], (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
       return;

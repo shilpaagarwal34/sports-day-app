@@ -66,7 +66,7 @@ router.get('/', (req, res) => {
       LEFT JOIN game_players gp ON p.id = gp.player_id
       GROUP BY p.id, p.name, p.gender, p.age_category
       ORDER BY games_count DESC, p.name
-    `, (err, playerStats) => {
+    `, [], (err, playerStats) => {
       if (err) {
         res.status(500).json({ error: err.message });
         return;

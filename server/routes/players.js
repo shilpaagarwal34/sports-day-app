@@ -14,7 +14,7 @@ router.get('/', (req, res) => {
     FROM players p 
     LEFT JOIN teams t ON p.team_id = t.id 
     ORDER BY p.name
-  `, (err, rows) => {
+  `, [], (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
       return;
