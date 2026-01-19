@@ -83,8 +83,21 @@ export const getPlayers = async (): Promise<Player[]> => {
 };
 
 export const getPlayer = async (id: number): Promise<Player> => {
-  const response = await fetch(`${API_BASE_URL}/players/${id}`);
+  const response = await fetch(`${API_BASE_URL}/players/${id}`, {
+    credentials: 'include'
+  });
   if (!response.ok) throw new Error('Failed to fetch player');
+  return response.json();
+};
+
+export const getPlayerGames = async (playerId: number): Promise<Game[]> => {
+  const response = await fetch(`${API_BASE_URL}/players/${playerId}/games`, {
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to fetch player games' }));
+    throw new Error(error.error || 'Failed to fetch player games');
+  }
   return response.json();
 };
 

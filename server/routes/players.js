@@ -23,6 +23,36 @@ router.get('/', (req, res) => {
   });
 });
 
+// GET games for a specific player
+// IMPORTANT: This route must come BEFORE /:id to avoid route conflicts
+router.get('/:id/games', (req, res) => {
+  const db = getDatabase();
+  if (!db) {
+    res.status(503).json({ error: 'Database not initialized' });
+    return;
+  }
+
+  const playerId = parseInt(req.params.id, 10);
+  if (isNaN(playerId)) {
+    res.status(400).json({ error: 'Invalid player ID' });
+    return;
+  }
+
+  db.all(`
+    SELECT g.*
+    FROM games g
+    INNER JOIN game_players gp ON g.id = gp.game_id
+    WHERE gp.player_id = ?
+    ORDER BY COALESCE(g.date, g.scheduled_time, g.created_at) DESC, g.name
+  `, [playerId], (err, games) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(games);
+  });
+});
+
 // GET player by ID
 router.get('/:id', (req, res) => {
   const db = getDatabase();

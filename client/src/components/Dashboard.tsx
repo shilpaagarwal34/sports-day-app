@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getDashboard } from '../services/api';
+import { getDashboard, getPlayerGames, Game } from '../services/api';
+import Modal from './Modal';
 import './Dashboard.css';
 
 interface GameStat {
@@ -29,6 +30,11 @@ const Dashboard: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerStat | null>(null);
+  const [playerGames, setPlayerGames] = useState<Game[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loadingGames, setLoadingGames] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -58,6 +64,34 @@ const Dashboard: React.FC = () => {
   const getProgressWidth = (assigned: number, required: number | null) => {
     const maxPlayers = required ?? 13; // Use 13 as max for "All Players" games
     return Math.min(100, (assigned / maxPlayers) * 100);
+  };
+
+  const handlePlayerClick = async (player: PlayerStat) => {
+    if (player.games_count === 0) {
+      return; // Don't open modal if player has no games
+    }
+
+    setSelectedPlayer(player);
+    setIsModalOpen(true);
+    setLoadingGames(true);
+    setModalError(null);
+    setPlayerGames([]);
+
+    try {
+      const games = await getPlayerGames(player.id);
+      setPlayerGames(games);
+    } catch (err: any) {
+      setModalError(err.message || 'Failed to load games for this player');
+    } finally {
+      setLoadingGames(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedPlayer(null);
+    setPlayerGames([]);
+    setModalError(null);
   };
 
   if (loading) {
@@ -184,7 +218,12 @@ const Dashboard: React.FC = () => {
         <h2>👤 Player Game Participation</h2>
         <div className="players-stats">
           {playersWithNumericCounts.map((player) => (
-            <div key={player.id} className="player-stat-card">
+            <div 
+              key={player.id} 
+              className={`player-stat-card ${player.games_count > 0 ? 'clickable' : ''}`}
+              onClick={() => player.games_count > 0 && handlePlayerClick(player)}
+              style={player.games_count > 0 ? { cursor: 'pointer' } : {}}
+            >
               <div className="player-stat-header">
                 <h3>{player.name}</h3>
                 <div className="player-badges">
@@ -205,10 +244,58 @@ const Dashboard: React.FC = () => {
               {player.games_count === 0 && (
                 <span className="no-games">Not assigned to any games</span>
               )}
+              {player.games_count > 0 && (
+                <span className="click-hint">Click to view games</span>
+              )}
             </div>
           ))}
         </div>
       </div>
+
+      {/* Player Games Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        title={selectedPlayer ? `Games for ${selectedPlayer.name}` : 'Player Games'}
+      >
+        {loadingGames ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>Loading games...</div>
+        ) : modalError ? (
+          <div style={{ color: '#e74c3c', padding: '20px' }}>{modalError}</div>
+        ) : playerGames.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+            No games available for this player
+          </div>
+        ) : (
+          <div className="player-games-list">
+            {playerGames.map((game) => (
+              <div key={game.id} className="player-game-item">
+                <div className="player-game-header">
+                  <h4>{game.name}</h4>
+                  {game.date && (
+                    <span className="player-game-date">
+                      {new Date(game.date).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+                {game.description && (
+                  <p className="player-game-description">{game.description}</p>
+                )}
+                {game.format && (
+                  <div className="player-game-detail">
+                    <strong>Format:</strong> {game.format}
+                  </div>
+                )}
+                {game.team_composition && (
+                  <div className="player-game-detail">
+                    <strong>Team Composition:</strong> {game.team_composition}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
